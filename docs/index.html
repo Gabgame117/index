@@ -1,13 +1,99 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-<title>Mon jeu</title>
+    <meta charset="UTF-8">
+    <title>Mini Pokémon Game</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f8ff; text-align: center; padding: 20px; }
+        button { padding: 10px 20px; margin: 5px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        .attack-btn { background-color: #ff4500; color: white; border: none; }
+        .don-btn { background-color: #0070ba; color: white; text-decoration: none; display: inline-block; padding: 10px 20px; border-radius: 5px; }
+    </style>
 </head>
-
 <body>
+    <h1>Mini Pokémon Game</h1>
+    <p>Choisis ton Pokémon :</p>
+    <select id="pokemonSelect">
+        <option>Salamèche</option>
+        <option>Reptincel</option>
+        <option>Dracaufeu</option>
+        <option>Caninos</option>
+        <option>Arcanin</option>
+        <option>Ponyta</option>
+        <option>Galopa</option>
+    </select>
+    <button onclick="startGame()">Commencer le combat</button>
 
-<h1>Mon site fonctionne 🎮</h1>
-<p>Bienvenue sur mon site GitHub Pages.</p>
+    <div id="game" style="display:none;">
+        <h2 id="combatTitle"></h2>
+        <p id="pvText"></p>
+        <div id="attackButtons"></div>
+        <p id="result"></p>
+    </div>
 
+    <hr>
+    <h3>💖 Soutenez mon jeu !</h3>
+    <p>Si tu aimes ce jeu, tu peux me soutenir en faisant un petit don :</p>
+    <a href="#" class="don-btn" target="_blank">Faire un don</a>
+    <p style="font-size:12px;color:gray;">(Le lien sera actif quand un parent m'aidera à créer un compte PayPal/Ko-fi)</p>
+
+    <script>
+        let joueurPV, ennemiPV, joueurNom, joueurAttaques, ennemiNom = "Aquagon", ennemiAttaques = ["Jet d'eau","Vague Puissante"];
+
+        const attaquesParPokemon = {
+            "Salamèche": ["Flamme","Griffe","Queue de feu"],
+            "Reptincel": ["Flamme","Griffe","Lance-flammes"],
+            "Dracaufeu": ["Flamme","Lance-flammes","Draco-Queue"],
+            "Caninos": ["Flamme","Morsure","Vive-Attaque"],
+            "Arcanin": ["Flamme","Croc Feu","Aboiement"],
+            "Ponyta": ["Flamme","Charge","Éclair"],
+            "Galopa": ["Flamme","Ruade","Éclair"]
+        };
+
+        function startGame() {
+            joueurNom = document.getElementById("pokemonSelect").value;
+            joueurPV = Math.floor(Math.random() * 41) + 50;
+            ennemiPV = Math.floor(Math.random() * 41) + 50;
+            joueurAttaques = attaquesParPokemon[joueurNom];
+
+            document.getElementById("combatTitle").innerText = `Tu envoies ${joueurNom} ! L'ennemi envoie ${ennemiNom} !`;
+            document.getElementById("pvText").innerText = `${joueurNom} PV: ${joueurPV} | ${ennemiNom} PV: ${ennemiPV}`;
+
+            let attackDiv = document.getElementById("attackButtons");
+            attackDiv.innerHTML = "";
+            joueurAttaques.forEach((atk, i) => {
+                let btn = document.createElement("button");
+                btn.className = "attack-btn";
+                btn.innerText = atk;
+                btn.onclick = () => attaqueJoueur(atk);
+                attackDiv.appendChild(btn);
+            });
+
+            document.getElementById("game").style.display = "block";
+        }
+
+        function attaqueJoueur(atk) {
+            let degats = Math.floor(Math.random() * 41) + 10;
+            ennemiPV -= degats;
+            let resultText = `${joueurNom} utilise ${atk} ! Dégâts: ${degats}\n`;
+
+            if (ennemiPV <= 0) {
+                resultText += `${ennemiNom} est K.O ! 🎉 Tu as gagné !`;
+                document.getElementById("attackButtons").style.display = "none";
+            } else {
+                let degatsEnnemi = Math.floor(Math.random() * 41) + 10;
+                joueurPV -= degatsEnnemi;
+                resultText += `${ennemiNom} utilise ${ennemiAttaques[Math.floor(Math.random() * ennemiAttaques.length)]} ! Tu perds ${degatsEnnemi} PV !`;
+            }
+
+            document.getElementById("result").innerText = resultText;
+            document.getElementById("pvText").innerText = `${joueurNom} PV: ${joueurPV} | ${ennemiNom} PV: ${ennemiPV}`;
+
+            if (joueurPV <= 0 && ennemiPV > 0) {
+                document.getElementById("result").innerText = `${joueurNom} est K.O... 😢 Tu as perdu.`;
+                document.getElementById("attackButtons").style.display = "none";
+            }
+        }
+    </script>
 </body>
 </html>
