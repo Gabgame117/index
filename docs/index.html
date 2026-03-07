@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Gabgame Pokémon Ultime + Capture</title>
+<title>Gabgame Pokémon Ultime + 3D Mobile</title>
 <style>
-body{font-family:Arial; background:#e0f7ff; text-align:center;}
+body{margin:0;font-family:Arial;background:#e0f7ff;text-align:center;overflow:hidden;}
 button{padding:10px 20px;margin:5px;font-size:16px;cursor:pointer;border-radius:8px;}
-#game,#boutique,#don,#inventaire{display:none;}
-#map{display:inline-block;margin-top:20px;}
-.cell{width:50px;height:50px;display:inline-block;border:1px solid #aaa;vertical-align:top;line-height:50px;font-size:20px;}
-.player{background:#ffecb3;}
+#game,#boutique,#don,#inventaire,#carte3d{display:none;}
 #menu{font-size:24px;}
-#don{font-size:14px;}
+#overlay{position:absolute;width:100%;text-align:center;color:black;font-size:18px;padding-top:10px;font-family:Arial;}
+canvas{display:block;}
+#joystick{position:absolute;bottom:20px;left:20px;width:120px;height:120px;border-radius:50%;background:rgba(0,0,0,0.2);touch-action:none;}
+#stick{position:absolute;top:35px;left:35px;width:50px;height:50px;border-radius:50%;background:rgba(0,0,0,0.5);}
 </style>
 </head>
 <body>
@@ -25,13 +25,14 @@ button{padding:10px 20px;margin:5px;font-size:16px;cursor:pointer;border-radius:
 <button onclick="ouvrirBoutique()">🏪 Boutique</button>
 <button onclick="ouvrirInventaire()">🗂 Inventaire</button>
 <button onclick="ouvrirDon()">💖 Faire un don</button>
+<button onclick="ouvrirCarte3D()">🗺️ Carte 3D</button>
 </div>
 
 <!-- JEU -->
 <div id="game">
 <h2 id="titre"></h2>
-<img id="pokemonImg">
-<img id="ennemiImg">
+<img id="pokemonImg" style="width:100px;height:100px;">
+<img id="ennemiImg" style="width:100px;height:100px;">
 <p id="pv"></p>
 <div id="attaques"></div>
 <p id="result"></p>
@@ -68,38 +69,44 @@ button{padding:10px 20px;margin:5px;font-size:16px;cursor:pointer;border-radius:
 <button onclick="retourMenu()">⬅ Retour menu</button>
 </div>
 
+<!-- CARTE 3D -->
+<div id="carte3d">
+<div id="overlay">
+<p>Flèches ou joystick pour se déplacer 🎮</p>
+</div>
+<div id="joystick"><div id="stick"></div></div>
+<br>
+<button onclick="retourMenu()">⬅ Retour menu</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/PointerLockControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+
 <script>
-// ======= VARIABLES =======
+// ===== VARIABLES JEU =====
 let joueurPV, ennemiPV, joueur, ennemi, attaques, argent=0;
-let playerPos={x:2,y:2};
 let pokemonsPossedes=[];
 const mapSize=5;
-
-// ======= POKÉMON =======
 const pokemons={
 "Salamèche":{attaques:["Flamme","Griffe","Croc Feu"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png"},
 "Dracaufeu":{attaques:["Lance-flammes","Draco-Queue","Croc Feu"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png"},
 "Caninos":{attaques:["Morsure","Flamme","Charge"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/58.png"},
 "Ponyta":{attaques:["Charge","Ruade","Flamme"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/77.png"}
 };
+const ennemis={"Aquagon":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png"};
 
-// ======= ENNEMIS =======
-const ennemis={
-"Aquagon":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png",
-"Pyrodrake":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/149.png",
-"Eaudragon":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/8.png"
-};
-
-// ======= MENU ORIGINAL =======
+// ===== MENU =====
 const menuHTML = `
 <h2>Menu</h2>
 <button onclick="choixPokemon()">🎴 Choisir Pokémon</button>
 <button onclick="ouvrirBoutique()">🏪 Boutique</button>
 <button onclick="ouvrirInventaire()">🗂 Inventaire</button>
 <button onclick="ouvrirDon()">💖 Faire un don</button>
+<button onclick="ouvrirCarte3D()">🗺️ Carte 3D</button>
 `;
 
-// ======= CHOIX POKÉMON =======
+// ===== CHOIX POKÉMON =====
 function choixPokemon(){
   let menu=document.getElementById("menu");
   menu.innerHTML="<h2>Choisis ton Pokémon :</h2>";
@@ -117,17 +124,15 @@ function choixPokemon(){
   });
 }
 
-// ======= DEBUT JEU =======
+// ===== JEU / MAP =====
+let playerPos={x:2,y:2};
 function startGame(){
   document.getElementById("game").style.display="block";
-  playerPos={x:2,y:2};
   drawMap();
   spawnRencontre();
   updatePV();
   createAttaques();
 }
-
-// ======= MAP =======
 function drawMap(){
   let div=document.getElementById("map");
   div.innerHTML="";
@@ -142,31 +147,28 @@ function drawMap(){
   }
 }
 
-// ======= DEPLACEMENT =======
+// ===== DEPLACEMENT =====
 document.addEventListener("keydown",function(e){
   if(document.getElementById("game").style.display==="block"){
-    if(e.key==="ArrowUp" && playerPos.y>0) playerPos.y--;
-    if(e.key==="ArrowDown" && playerPos.y<mapSize-1) playerPos.y++;
-    if(e.key==="ArrowLeft" && playerPos.x>0) playerPos.x--;
-    if(e.key==="ArrowRight" && playerPos.x<mapSize-1) playerPos.x++;
+    if(e.key==="ArrowUp") playerPos.y=Math.max(0,playerPos.y-1);
+    if(e.key==="ArrowDown") playerPos.y=Math.min(mapSize-1,playerPos.y+1);
+    if(e.key==="ArrowLeft") playerPos.x=Math.max(0,playerPos.x-1);
+    if(e.key==="ArrowRight") playerPos.x=Math.min(mapSize-1,playerPos.x+1);
     drawMap();
     if(Math.random()<0.3) spawnRencontre();
   }
 });
 
-// ======= RENCONTRE =======
+// ===== RENCONTRE =====
 function spawnRencontre(){
-  let choix=Math.random();
-  if(choix<0.5){ // ennemi
-    let noms=Object.keys(ennemis);
-    ennemi=noms[Math.floor(Math.random()*noms.length)];
-    ennemiPV=80+Math.floor(Math.random()*40);
+  if(Math.random()<0.5){
+    ennemi="Aquagon";
+    ennemiPV=100;
     document.getElementById("titre").innerHTML="Rencontre ! "+ennemi+" apparait !";
     document.getElementById("pokemonImg").src=pokemons[joueur].img;
     document.getElementById("ennemiImg").src=ennemis[ennemi];
-  } else { // Pokémon sauvage capturable
-    let noms=Object.keys(pokemons);
-    let sauvage=noms[Math.floor(Math.random()*noms.length)];
+  } else {
+    let sauvage="Ponyta";
     if(!pokemonsPossedes.includes(sauvage)){
       pokemonsPossedes.push(sauvage);
       alert("🎉 Tu as capturé "+sauvage+" !");
@@ -174,7 +176,7 @@ function spawnRencontre(){
   }
 }
 
-// ======= CREER BOUTONS ATTAQUE =======
+// ===== ATTAQUES =====
 function createAttaques(){
   let div=document.getElementById("attaques");
   div.innerHTML="";
@@ -185,8 +187,6 @@ function createAttaques(){
     div.appendChild(b);
   });
 }
-
-// ======= ATTAQUE =======
 function attaque(a){
   if(!ennemi) return;
   let dJ=Math.floor(Math.random()*30)+10;
@@ -203,21 +203,17 @@ function attaque(a){
   let dE=Math.floor(Math.random()*25)+10;
   joueurPV-=dE;
   txt+=ennemi+" attaque ! "+dE+" dégâts";
-  if(joueurPV<=0){
-    txt+="<br>"+joueur+" K.O 😢";
-  }
+  if(joueurPV<=0) txt+="<br>"+joueur+" K.O 😢";
   document.getElementById("result").innerHTML=txt;
   updatePV();
 }
-
-// ======= UPDATE PV & ARGENT =======
 function updatePV(){
   document.getElementById("pv").innerHTML=joueur+" PV : "+joueurPV+" | "+(ennemi||"Aucun")+(ennemi? " PV : "+ennemiPV:"");
   document.getElementById("argent").innerHTML="💰 Argent : "+argent;
   document.getElementById("argentBoutique").innerText=argent;
 }
 
-// ======= BOUTIQUE =======
+// ===== BOUTIQUE =====
 function ouvrirBoutique(){
   document.getElementById("menu").style.display="none";
   document.getElementById("boutique").style.display="block";
@@ -229,33 +225,120 @@ function acheter(item){
   updatePV();
 }
 
-// ======= INVENTAIRE =======
+// ===== INVENTAIRE =====
 function ouvrirInventaire(){
   document.getElementById("menu").style.display="none";
   document.getElementById("inventaire").style.display="block";
-  if(pokemonsPossedes.length===0){
-    document.getElementById("listePokemons").innerText="Aucun Pokémon capturé";
-  } else {
-    document.getElementById("listePokemons").innerText=pokemonsPossedes.join(", ");
-  }
+  if(pokemonsPossedes.length===0) document.getElementById("listePokemons").innerText="Aucun Pokémon capturé";
+  else document.getElementById("listePokemons").innerText=pokemonsPossedes.join(", ");
 }
 
-// ======= PAGE DON =======
+// ===== PAGE DON =====
 function ouvrirDon(){
   document.getElementById("menu").style.display="none";
   document.getElementById("don").style.display="block";
 }
 
-// ======= RETOUR MENU =======
+// ===== CARTE 3D + JOYSTICK =====
+let scene,camera,renderer,controls,pokemonModel3D;
+let move={forward:false,backward:false,left:false,right:false},speed=0.1;
+
+function ouvrirCarte3D(){
+  document.getElementById("menu").style.display="none";
+  document.getElementById("carte3d").style.display="block";
+  init3D();
+}
+
+function init3D(){
+  if(scene) return;
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x87CEEB);
+  camera=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000);
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  document.getElementById("carte3d").appendChild(renderer.domElement);
+
+  controls=new THREE.PointerLockControls(camera,renderer.domElement);
+  document.body.addEventListener('click',()=>{controls.lock();});
+  scene.add(controls.getObject());
+
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshBasicMaterial({color:0x228B22}));
+  floor.rotation.x=-Math.PI/2;
+  scene.add(floor);
+
+  const light=new THREE.HemisphereLight(0xffffff,0x444444);
+  light.position.set(0,200,0);
+  scene.add(light);
+
+  camera.position.set(0,2,5);
+
+  document.addEventListener("keydown",kDown3D);
+  document.addEventListener("keyup",kUp3D);
+
+  // Pokémon modèle 3D
+  const loader=new THREE.GLTFLoader();
+  loader.load('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF/Duck.gltf',function(gltf){
+    pokemonModel3D=gltf.scene;
+    pokemonModel3D.position.set(0,0,-10);
+    pokemonModel3D.scale.set(3,3,3);
+    scene.add(pokemonModel3D);
+  });
+
+  // Joystick mobile
+  initJoystick();
+
+  animate3D();
+}
+
+function kDown3D(e){if(e.code==="KeyW"||e.code==="ArrowUp") move.forward=true; if(e.code==="KeyS"||e.code==="ArrowDown") move.backward=true; if(e.code==="KeyA"||e.code==="ArrowLeft") move.left=true; if(e.code==="KeyD"||e.code==="ArrowRight") move.right=true;}
+function kUp3D(e){if(e.code==="KeyW"||e.code==="ArrowUp") move.forward=false; if(e.code==="KeyS"||e.code==="ArrowDown") move.backward=false; if(e.code==="KeyA"||e.code==="ArrowLeft") move.left=false; if(e.code==="KeyD"||e.code==="ArrowRight") move.right=false;}
+
+function animate3D(){
+  requestAnimationFrame(animate3D);
+  const dir=new THREE.Vector3();
+  if(move.forward) dir.z-=speed;
+  if(move.backward) dir.z+=speed;
+  if(move.left) dir.x-=speed;
+  if(move.right) dir.x+=speed;
+  controls.moveRight(dir.x);
+  controls.moveForward(dir.z);
+  renderer.render(scene,camera);
+}
+
+// ===== JOYSTICK =====
+function initJoystick(){
+  const stick=document.getElementById("stick");
+  const base=document.getElementById("joystick");
+  let origin={x:0,y:0};
+  let dragging=false;
+
+  const getDir=e=>{
+    let rect=base.getBoundingClientRect();
+    let x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left-60;
+    let y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top-60;
+    let dist=Math.sqrt(x*x+y*y);
+    let max=40; if(dist>max){x=x*max/dist;y=y*max/dist;}
+    stick.style.transform=`translate(${x}px,${y}px)`;
+    move.forward=y<-5; move.backward=y>5; move.left=x<-5; move.right=x>5;
+  };
+
+  base.addEventListener("touchstart", e=>{dragging=true; getDir(e); e.preventDefault();});
+  base.addEventListener("touchmove", e=>{if(dragging)getDir(e);});
+  base.addEventListener("touchend", e=>{dragging=false;stick.style.transform="translate(0px,0px)"; move.forward=false;move.backward=false;move.left=false;move.right=false;});
+  base.addEventListener("mousedown", e=>{dragging=true; getDir(e);});
+  document.addEventListener("mousemove", e=>{if(dragging)getDir(e);});
+  document.addEventListener("mouseup", e=>{dragging=false; stick.style.transform="translate(0px,0px)"; move.forward=false;move.backward=false;move.left=false;move.right=false;});
+}
+
+// ===== RETOUR MENU =====
 function retourMenu(){
   document.getElementById("game").style.display="none";
   document.getElementById("boutique").style.display="none";
   document.getElementById("don").style.display="none";
   document.getElementById("inventaire").style.display="none";
-
-  // Réinitialiser le menu
+  document.getElementById("carte3d").style.display="none";
   let menu=document.getElementById("menu");
-  menu.innerHTML = menuHTML;
+  menu.innerHTML=menuHTML;
   menu.style.display="block";
 }
 </script>
