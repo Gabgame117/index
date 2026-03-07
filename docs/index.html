@@ -2,18 +2,18 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Jeu de Pokémon</title>
+<title>Jeu Pokémon</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
 <style>
 
 body{
+margin:0;
 font-family:Arial;
-text-align:center;
 background:#111;
 color:white;
-margin:0;
+text-align:center;
 }
 
 .screen{
@@ -24,13 +24,34 @@ button{
 padding:10px;
 margin:5px;
 font-size:16px;
-cursor:pointer;
 }
 
 canvas{
-background:#6bd3ff;
-margin:auto;
+background:#5cc8ff;
 display:block;
+margin:auto;
+}
+
+#joystick{
+position:absolute;
+bottom:20px;
+left:20px;
+width:120px;
+height:120px;
+background:rgba(255,255,255,0.2);
+border-radius:50%;
+touch-action:none;
+display:none;
+}
+
+#stick{
+width:50px;
+height:50px;
+background:white;
+border-radius:50%;
+position:absolute;
+top:35px;
+left:35px;
 }
 
 </style>
@@ -57,6 +78,7 @@ display:block;
 <input id="password" type="password" placeholder="mot de passe"><br>
 
 <button onclick="login()">Connexion</button>
+<button onclick="register()">Créer un compte</button>
 
 <button onclick="show('home')">Retour</button>
 
@@ -68,9 +90,7 @@ display:block;
 <h2>Choisis ton Pokémon</h2>
 
 <button onclick="choosePokemon('Salamèche')">Salamèche</button>
-
 <button onclick="choosePokemon('Carapuce')">Carapuce</button>
-
 <button onclick="choosePokemon('Bulbizarre')">Bulbizarre</button>
 
 </div>
@@ -92,6 +112,10 @@ display:block;
 <div id="arena" class="screen">
 
 <canvas id="game" width="600" height="400"></canvas>
+
+<div id="joystick">
+<div id="stick"></div>
+</div>
 
 <button onclick="show('menu')">Retour</button>
 
@@ -158,8 +182,6 @@ pokemons_caught:[]
 }
 
 let logged=false
-let enemyHP=100
-let playerHP=100
 
 /* NAVIGATION */
 
@@ -175,15 +197,37 @@ document.getElementById(id).style.display="block"
 
 show("home")
 
-/* JOUER SANS COMPTE */
+/* COMPTE */
 
-function playGuest(){
+async function register(){
+
+const email=document.getElementById("email").value
+const password=document.getElementById("password").value
+
+const {data,error}=await supabaseClient.auth.signUp({
+email:email,
+password:password
+})
+
+if(error){
+alert("Erreur inscription")
+return
+}
+
+await supabaseClient.from("players").insert({
+id:data.user.id,
+email:email,
+pokemon:null,
+money:0,
+potions:0,
+pokemons_caught:[]
+})
+
+alert("Compte créé")
 
 show("choose")
 
 }
-
-/* LOGIN */
 
 async function login(){
 
@@ -196,9 +240,7 @@ password:password
 })
 
 if(error){
-
 alert("Erreur connexion")
-
 return
 }
 
@@ -207,8 +249,6 @@ logged=true
 loadPlayer()
 
 }
-
-/* CHARGER JOUEUR */
 
 async function loadPlayer(){
 
@@ -227,8 +267,6 @@ updateUI()
 show("menu")
 
 }
-
-/* SAUVEGARDE */
 
 async function savePlayer(){
 
@@ -260,11 +298,16 @@ show("menu")
 const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
 
-let enemy={x:300,y:200,name:"Rattata"}
+let playerPos={x:280,y:180}
+let move={x:0,y:0}
+
+let enemy={x:400,y:200,name:"Rattata"}
 
 function startArena(){
 
 show("arena")
+
+document.getElementById("joystick").style.display="block"
 
 draw()
 
@@ -274,26 +317,94 @@ function draw(){
 
 ctx.clearRect(0,0,600,400)
 
-ctx.fillStyle="red"
+playerPos.x+=move.x
+playerPos.y+=move.y
 
-ctx.fillRect(280,180,20,20)
+ctx.fillStyle="red"
+ctx.fillRect(playerPos.x,playerPos.y,20,20)
 
 ctx.fillStyle="yellow"
-
 ctx.fillRect(enemy.x,enemy.y,20,20)
+
+if(
+Math.abs(playerPos.x-enemy.x)<20 &&
+Math.abs(playerPos.y-enemy.y)<20
+){
+startCombat()
+return
+}
+
+requestAnimationFrame(draw)
 
 }
 
+/* CONTROLES CLAVIER */
+
+document.addEventListener("keydown",e=>{
+
+if(e.key==="ArrowUp") move.y=-3
+if(e.key==="ArrowDown") move.y=3
+if(e.key==="ArrowLeft") move.x=-3
+if(e.key==="ArrowRight") move.x=3
+
+})
+
+document.addEventListener("keyup",e=>{
+
+if(e.key==="ArrowUp"||e.key==="ArrowDown") move.y=0
+if(e.key==="ArrowLeft"||e.key==="ArrowRight") move.x=0
+
+})
+
+/* JOYSTICK MOBILE */
+
+const base=document.getElementById("joystick")
+const stick=document.getElementById("stick")
+
+let dragging=false
+
+base.addEventListener("touchstart",()=>dragging=true)
+
+base.addEventListener("touchmove",e=>{
+
+if(!dragging)return
+
+let rect=base.getBoundingClientRect()
+
+let x=e.touches[0].clientX-rect.left-60
+let y=e.touches[0].clientY-rect.top-60
+
+stick.style.transform=`translate(${x}px,${y}px)`
+
+move.x=x/20
+move.y=y/20
+
+})
+
+base.addEventListener("touchend",()=>{
+
+dragging=false
+
+stick.style.transform=""
+
+move.x=0
+move.y=0
+
+})
+
 /* COMBAT */
+
+let enemyHP=100
+let playerHP=100
 
 function startCombat(){
 
 enemyHP=100
 playerHP=100
 
-document.getElementById("enemyName").innerText="Combat contre "+enemy.name
-
 createAttacks()
+
+document.getElementById("enemyName").innerText="Combat contre "+enemy.name
 
 show("combat")
 
@@ -369,6 +480,12 @@ document.getElementById("combatStats").innerText=
 
 }
 
+function exitCombat(){
+
+show("arena")
+
+}
+
 /* POTION */
 
 function usePotion(){
@@ -408,7 +525,6 @@ updateUI()
 function showInventory(){
 
 document.getElementById("inv").innerText=
-
 "Potions : "+player.potions+
 "\nPokémon battus : "+player.pokemons_caught.join(",")
 
