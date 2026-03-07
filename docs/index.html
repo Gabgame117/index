@@ -2,296 +2,79 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Pokémon Game</title>
+<title>Pokemon World</title>
 
 <style>
 
 body{
 margin:0;
-background:#202020;
+background:black;
 color:white;
 font-family:Arial;
 text-align:center;
 }
 
 canvas{
-background:#6ecb63;
 display:block;
 margin:auto;
 border:3px solid black;
+background:#6ecb63;
 }
-
-.screen{display:none}
 
 button{
 padding:10px;
 margin:5px;
-font-size:16px;
 }
 
-.hpbar{
-width:200px;
-height:20px;
-background:#333;
-margin:auto;
-}
-
-.hp{
-height:100%;
-background:lime;
+.screen{
+display:none;
 }
 
 </style>
 
 </head>
+
 <body>
 
 <div id="menu" class="screen">
 
-<h1>Jeu Pokémon</h1>
+<h1>Pokemon World</h1>
 
 <button onclick="startGame()">Jouer</button>
+<button onclick="show('inventory')">Inventaire</button>
+<button onclick="show('shop')">Boutique</button>
 
 </div>
 
-<div id="gameScreen" class="screen">
+<div id="game" class="screen">
 
-<canvas id="game" width="600" height="400"></canvas>
+<canvas id="canvas" width="800" height="500"></canvas>
 
-</div>
-
-<div id="combat" class="screen">
-
-<h2 id="enemyName"></h2>
-
-<img id="enemySprite" width="120">
-
-<div class="hpbar">
-<div id="enemyHP" class="hp"></div>
-</div>
-
-<br>
-
-<img id="playerSprite" width="120">
-
-<div class="hpbar">
-<div id="playerHP" class="hp"></div>
-</div>
-
-<div id="attacks"></div>
-
-<button onclick="flee()">Fuir</button>
+<button onclick="show('menu')">Menu</button>
 
 </div>
 
-<script>
+<div id="inventory" class="screen">
 
-function show(id){
+<h2>Inventaire</h2>
 
-document.querySelectorAll(".screen").forEach(s=>s.style.display="none")
-document.getElementById(id).style.display="block"
+<p id="inv"></p>
 
-}
+<button onclick="show('menu')">Retour</button>
 
-show("menu")
+</div>
 
-const canvas=document.getElementById("game")
-const ctx=canvas.getContext("2d")
+<div id="shop" class="screen">
 
-let player={
+<h2>Boutique</h2>
 
-x:300,
-y:200,
-speed:3,
-pokemon:"Salamèche",
-hp:100
+<button onclick="buyBall()">Pokeball (10)</button>
 
-}
+<button onclick="show('menu')">Retour</button>
 
-const pokemonSprites={
+</div>
 
-Salamèche:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png",
-Rattata:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/19.png",
-Chenipan:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10.png"
-
-}
-
-let enemy={
-
-name:"Rattata",
-hp:100
-
-}
-
-let keys={}
-
-document.addEventListener("keydown",e=>keys[e.key]=true)
-document.addEventListener("keyup",e=>keys[e.key]=false)
-
-function startGame(){
-
-show("gameScreen")
-
-gameLoop()
-
-}
-
-function gameLoop(){
-
-update()
-
-draw()
-
-requestAnimationFrame(gameLoop)
-
-}
-
-function update(){
-
-if(keys["ArrowUp"]) player.y-=player.speed
-if(keys["ArrowDown"]) player.y+=player.speed
-if(keys["ArrowLeft"]) player.x-=player.speed
-if(keys["ArrowRight"]) player.x+=player.speed
-
-// combat aléatoire dans l'herbe
-
-if(Math.random()<0.005){
-
-startCombat()
-
-}
-
-}
-
-function draw(){
-
-ctx.clearRect(0,0,600,400)
-
-// herbe
-
-ctx.fillStyle="#4caf50"
-ctx.fillRect(0,0,600,400)
-
-ctx.fillStyle="#3e8e41"
-
-for(let i=0;i<20;i++){
-
-ctx.fillRect(i*30,200,20,20)
-
-}
-
-// joueur
-
-ctx.fillStyle="red"
-ctx.fillRect(player.x,player.y,20,20)
-
-}
-
-function startCombat(){
-
-enemy.name=Math.random()>0.5?"Rattata":"Chenipan"
-enemy.hp=100
-player.hp=100
-
-document.getElementById("enemyName").innerText="Un "+enemy.name+" sauvage apparaît"
-
-document.getElementById("enemySprite").src=pokemonSprites[enemy.name]
-document.getElementById("playerSprite").src=pokemonSprites[player.pokemon]
-
-updateHP()
-
-createAttacks()
-
-show("combat")
-
-}
-
-function updateHP(){
-
-document.getElementById("playerHP").style.width=player.hp+"%"
-document.getElementById("enemyHP").style.width=enemy.hp+"%"
-
-}
-
-function createAttacks(){
-
-const div=document.getElementById("attacks")
-
-div.innerHTML=""
-
-const attacks=[
-
-"Flammèche",
-"Griffe",
-"Morsure"
-
-]
-
-attacks.forEach(a=>{
-
-let b=document.createElement("button")
-
-b.innerText=a
-
-b.onclick=()=>attack()
-
-div.appendChild(b)
-
-})
-
-}
-
-function attack(){
-
-let dmg=Math.floor(Math.random()*20)+10
-
-enemy.hp-=dmg
-
-if(enemy.hp<0)enemy.hp=0
-
-updateHP()
-
-if(enemy.hp===0){
-
-alert("Victoire")
-
-show("gameScreen")
-
-return
-
-}
-
-enemyAttack()
-
-}
-
-function enemyAttack(){
-
-let dmg=Math.floor(Math.random()*15)+5
-
-player.hp-=dmg
-
-if(player.hp<0)player.hp=0
-
-updateHP()
-
-if(player.hp===0){
-
-alert("Votre Pokémon est KO")
-
-show("gameScreen")
-
-}
-
-}
-
-function flee(){
-
-show("gameScreen")
-
-}
-
-</script>
+<script src="game.js"></script>
 
 </body>
 </html>
