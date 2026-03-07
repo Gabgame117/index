@@ -2,331 +2,295 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Jeu Pokémon</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<title>Pokémon Game</title>
+
 <style>
-body { margin:0; font-family:Arial; background:#111; color:white; text-align:center; }
-.screen { display:none; }
-button { padding:10px; margin:5px; font-size:16px; }
-canvas { background:#5cc8ff; display:block; margin:auto; }
-#joystick { position:absolute; bottom:20px; left:20px; width:120px; height:120px; background:rgba(255,255,255,0.2); border-radius:50%; touch-action:none; display:none; }
-#stick { width:50px; height:50px; background:white; border-radius:50%; position:absolute; top:35px; left:35px; }
+
+body{
+margin:0;
+background:#202020;
+color:white;
+font-family:Arial;
+text-align:center;
+}
+
+canvas{
+background:#6ecb63;
+display:block;
+margin:auto;
+border:3px solid black;
+}
+
+.screen{display:none}
+
+button{
+padding:10px;
+margin:5px;
+font-size:16px;
+}
+
+.hpbar{
+width:200px;
+height:20px;
+background:#333;
+margin:auto;
+}
+
+.hp{
+height:100%;
+background:lime;
+}
+
 </style>
+
 </head>
 <body>
 
-<!-- ACCUEIL -->
-<div id="home" class="screen">
-<h1>Jeu de Pokémon</h1>
-<button onclick="show('login')">Se connecter</button>
-<button onclick="playGuest()">Jouer sans compte</button>
-</div>
-
-<!-- LOGIN / REGISTER -->
-<div id="login" class="screen">
-<h2>Connexion</h2>
-<input id="email" placeholder="Email"><br>
-<input id="password" type="password" placeholder="Mot de passe"><br>
-<button onclick="login()">Connexion</button>
-<button onclick="register()">Créer un compte</button>
-<button onclick="show('home')">Retour</button>
-</div>
-
-<!-- CHOIX POKEMON -->
-<div id="choose" class="screen">
-<h2>Choisis ton Pokémon</h2>
-<button onclick="choosePokemon('Salamèche')">Salamèche</button>
-<button onclick="choosePokemon('Carapuce')">Carapuce</button>
-<button onclick="choosePokemon('Bulbizarre')">Bulbizarre</button>
-</div>
-
-<!-- MENU -->
 <div id="menu" class="screen">
-<h2>Menu</h2>
-<button onclick="startArena()">Jouer</button>
-<button onclick="show('shop')">Boutique</button>
-<button onclick="showInventory()">Inventaire</button>
-<p>Argent : <span id="money"></span></p>
-<p>Pokémon : <span id="currentPokemon"></span></p>
+
+<h1>Jeu Pokémon</h1>
+
+<button onclick="startGame()">Jouer</button>
+
 </div>
 
-<!-- ARENE -->
-<div id="arena" class="screen">
+<div id="gameScreen" class="screen">
+
 <canvas id="game" width="600" height="400"></canvas>
-<div id="joystick">
-<div id="stick"></div>
-</div>
-<button onclick="show('menu')">Retour</button>
+
 </div>
 
-<!-- COMBAT -->
 <div id="combat" class="screen">
+
 <h2 id="enemyName"></h2>
+
+<img id="enemySprite" width="120">
+
+<div class="hpbar">
+<div id="enemyHP" class="hp"></div>
+</div>
+
+<br>
+
+<img id="playerSprite" width="120">
+
+<div class="hpbar">
+<div id="playerHP" class="hp"></div>
+</div>
+
 <div id="attacks"></div>
-<p id="combatStats"></p>
-<button onclick="usePotion()">Potion</button>
-<button onclick="exitCombat()">Fuir</button>
-</div>
 
-<!-- BOUTIQUE -->
-<div id="shop" class="screen">
-<h2>Boutique</h2>
-<button onclick="buyPotion()">Potion (20)</button>
-<button onclick="show('menu')">Retour</button>
-</div>
+<button onclick="flee()">Fuir</button>
 
-<!-- INVENTAIRE -->
-<div id="inventory" class="screen">
-<h2>Inventaire</h2>
-<p id="inv"></p>
-<button onclick="show('menu')">Retour</button>
 </div>
 
 <script>
-// --- SUPABASE ---
-const SUPABASE_URL="https://tyitqidjzgoqpmuhuioq.supabase.co";
-const SUPABASE_KEY="sb_publishable_dFLgsifzFbrSBDAht6qERA_UtcOHSyn";
-const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-// --- ETAT JOUEUR ---
-let player={pokemon:null,level:1,money:0,potions:0,pokemons_caught:[]};
-let logged=false;
-
-// --- NAVIGATION ---
 function show(id){
-    document.querySelectorAll(".screen").forEach(s=>s.style.display="none");
-    document.getElementById(id).style.display="block";
-}
-show("home");
 
-// --- REGISTER / LOGIN ---
-async function register(){
-    const email=document.getElementById("email").value;
-    const password=document.getElementById("password").value;
-    if(!email||!password){alert("Email et mot de passe requis");return;}
+document.querySelectorAll(".screen").forEach(s=>s.style.display="none")
+document.getElementById(id).style.display="block"
 
-    const {data,error}=await supabaseClient.auth.signUp({email,password});
-    if(error){alert("Erreur : "+error.message);return;}
-
-    await supabaseClient.from("players").insert({
-        id:data.user.id,email,pokemon:null,level:1,money:0,potions:0,pokemons_caught:[]
-    });
-    alert("Compte créé !");
-    show("choose");
 }
 
-async function login(){
-    const email=document.getElementById("email").value;
-    const password=document.getElementById("password").value;
-    const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});
-    if(error){alert("Erreur : "+error.message);return;}
-    logged=true;
-    loadPlayer();
+show("menu")
+
+const canvas=document.getElementById("game")
+const ctx=canvas.getContext("2d")
+
+let player={
+
+x:300,
+y:200,
+speed:3,
+pokemon:"Salamèche",
+hp:100
+
 }
 
-async function loadPlayer(){
-    const user=await supabaseClient.auth.getUser();
-    const {data}=await supabaseClient.from("players").select("*").eq("id",user.data.user.id).single();
-    player=data;
-    updateUI();
-    show("menu");
+const pokemonSprites={
+
+Salamèche:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png",
+Rattata:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/19.png",
+Chenipan:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10.png"
+
 }
 
-async function savePlayer(){if(!logged)return;
-const user=await supabaseClient.auth.getUser();
-await supabaseClient.from("players").update(player).eq("id",user.data.user.id);
+let enemy={
+
+name:"Rattata",
+hp:100
+
 }
 
-// --- CHOIX POKEMON ---
-function choosePokemon(name){player.pokemon=name;player.level=1;updateUI();show("menu");}
+let keys={}
 
-// --- JOUER SANS COMPTE ---
-function playGuest(){
-    logged=false;
-    player={pokemon:"Salamèche", level:1, money:0, potions:0,pokemons_caught:[]};
-    updateUI();
-    show("menu");
+document.addEventListener("keydown",e=>keys[e.key]=true)
+document.addEventListener("keyup",e=>keys[e.key]=false)
+
+function startGame(){
+
+show("gameScreen")
+
+gameLoop()
+
 }
 
-// --- ARENE ---
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
-let playerPos={x:280,y:180},move={x:0,y:0},enemy={x:400,y:200,name:"Rattata",level:1};
-let enemyHP=100,playerHP=100;
+function gameLoop(){
 
-function startArena(){show("arena");document.getElementById("joystick").style.display="block";drawArena();}
+update()
 
-function drawArena(){
-    ctx.clearRect(0,0,600,400);
-    playerPos.x+=move.x; playerPos.y+=move.y;
-    ctx.fillStyle="red";ctx.fillRect(playerPos.x,playerPos.y,20,20);
-    ctx.fillStyle="yellow";ctx.fillRect(enemy.x,enemy.y,20,20);
-    if(Math.abs(playerPos.x-enemy.x)<20 && Math.abs(playerPos.y-enemy.y)<20){startCombat();return;}
-    requestAnimationFrame(drawArena);
+draw()
+
+requestAnimationFrame(gameLoop)
+
 }
 
-// --- CONTROLES ---
-document.addEventListener("keydown",e=>{
-if(e.key==="ArrowUp") move.y=-3;
-if(e.key==="ArrowDown") move.y=3;
-if(e.key==="ArrowLeft") move.x=-3;
-if(e.key==="ArrowRight") move.x=3;
-});
-document.addEventListener("keyup",e=>{
-if(e.key==="ArrowUp"||e.key==="ArrowDown") move.y=0;
-if(e.key==="ArrowLeft"||e.key==="ArrowRight") move.x=0;
-});
+function update(){
 
-// --- JOYSTICK MOBILE ---
-const base=document.getElementById("joystick"),stick=document.getElementById("stick");
-let dragging=false;
-base.addEventListener("touchstart",()=>dragging=true);
-base.addEventListener("touchmove",e=>{
-    if(!dragging)return;
-    let rect=base.getBoundingClientRect();
-    let x=e.touches[0].clientX-rect.left-60;
-    let y=e.touches[0].clientY-rect.top-60;
-    stick.style.transform=`translate(${x}px,${y}px)`;
-    move.x=x/20; move.y=y/20;
-});
-base.addEventListener("touchend",()=>{dragging=false;stick.style.transform="";move.x=0;move.y=0;});
+if(keys["ArrowUp"]) player.y-=player.speed
+if(keys["ArrowDown"]) player.y+=player.speed
+if(keys["ArrowLeft"]) player.x-=player.speed
+if(keys["ArrowRight"]) player.x+=player.speed
 
-// --- COMBAT AVEC CAPTURE & EVOLUTION ---
-const evolutions = {
-    "Salamèche": {level:16,evolvesTo:"Reptincel"},
-    "Reptincel": {level:36,evolvesTo:"Dracaufeu"},
-    "Carapuce": {level:16,evolvesTo:"Carabaffe"},
-    "Carabaffe": {level:36,evolvesTo:"Tortank"},
-    "Bulbizarre": {level:16,evolvesTo:"Herbizarre"},
-    "Herbizarre": {level:36,evolvesTo:"Florizarre"}
-};
+// combat aléatoire dans l'herbe
+
+if(Math.random()<0.005){
+
+startCombat()
+
+}
+
+}
+
+function draw(){
+
+ctx.clearRect(0,0,600,400)
+
+// herbe
+
+ctx.fillStyle="#4caf50"
+ctx.fillRect(0,0,600,400)
+
+ctx.fillStyle="#3e8e41"
+
+for(let i=0;i<20;i++){
+
+ctx.fillRect(i*30,200,20,20)
+
+}
+
+// joueur
+
+ctx.fillStyle="red"
+ctx.fillRect(player.x,player.y,20,20)
+
+}
 
 function startCombat(){
-    enemyHP=100; playerHP=100;
-    enemy={x:400,y:200,name:"Rattata",level:1};
-    document.getElementById("enemyName").innerText="Combat contre "+enemy.name;
-    show("combat");
-    createAttacks();
-    updateCombat();
+
+enemy.name=Math.random()>0.5?"Rattata":"Chenipan"
+enemy.hp=100
+player.hp=100
+
+document.getElementById("enemyName").innerText="Un "+enemy.name+" sauvage apparaît"
+
+document.getElementById("enemySprite").src=pokemonSprites[enemy.name]
+document.getElementById("playerSprite").src=pokemonSprites[player.pokemon]
+
+updateHP()
+
+createAttacks()
+
+show("combat")
+
 }
 
-function getAttacks(){
-    if(player.pokemon=="Salamèche") return ["Flammèche","Crocs Feu","Lance-Flammes"];
-    if(player.pokemon=="Carapuce") return ["Pistolet à O","Morsure","Hydrocanon"];
-    if(player.pokemon=="Bulbizarre") return ["Fouet Lianes","Tranch'Herbe","Canon Graine"];
-    return ["Attaque basique"];
+function updateHP(){
+
+document.getElementById("playerHP").style.width=player.hp+"%"
+document.getElementById("enemyHP").style.width=enemy.hp+"%"
+
 }
 
 function createAttacks(){
-    const div=document.getElementById("attacks"); div.innerHTML="";
-    getAttacks().forEach(a=>{
-        let b=document.createElement("button");
-        b.innerText=a;
-        b.onclick=()=>attack(a);
-        div.appendChild(b);
-    });
+
+const div=document.getElementById("attacks")
+
+div.innerHTML=""
+
+const attacks=[
+
+"Flammèche",
+"Griffe",
+"Morsure"
+
+]
+
+attacks.forEach(a=>{
+
+let b=document.createElement("button")
+
+b.innerText=a
+
+b.onclick=()=>attack()
+
+div.appendChild(b)
+
+})
+
 }
 
-function attack(atkName){
-    const dmg=Math.floor(Math.random()*20)+10;
-    enemyHP=Math.max(enemyHP-dmg,0);
-    animateHit("enemy"); updateCombat();
-    alert(`${player.pokemon} utilise ${atkName} ! Dégâts : ${dmg}`);
-    
-    if(enemyHP<=20){
-        capturePokemon();
-        return;
-    }
-    
-    if(enemyHP<=0){
-        player.money+=20;
-        player.pokemons_caught.push({name:enemy.name,level:1});
-        gainLevel(player);
-        savePlayer(); alert("Victoire !");
-        updateUI(); show("menu"); return;
-    }
-    
-    setTimeout(enemyAttack,1000);
+function attack(){
+
+let dmg=Math.floor(Math.random()*20)+10
+
+enemy.hp-=dmg
+
+if(enemy.hp<0)enemy.hp=0
+
+updateHP()
+
+if(enemy.hp===0){
+
+alert("Victoire")
+
+show("gameScreen")
+
+return
+
+}
+
+enemyAttack()
+
 }
 
 function enemyAttack(){
-    const enemyAtk=["Morsure","Charge","Griffe"];
-    const atk=enemyAtk[Math.floor(Math.random()*enemyAtk.length)];
-    const dmg=Math.floor(Math.random()*15)+5;
-    playerHP=Math.max(playerHP-dmg,0);
-    animateHit("player"); updateCombat();
-    alert(`${enemy.name} utilise ${atk} ! Dégâts : ${dmg}`);
-    
-    if(playerHP<=0){alert(`${player.pokemon} est K.O... 😢`); show("menu");}
+
+let dmg=Math.floor(Math.random()*15)+5
+
+player.hp-=dmg
+
+if(player.hp<0)player.hp=0
+
+updateHP()
+
+if(player.hp===0){
+
+alert("Votre Pokémon est KO")
+
+show("gameScreen")
+
 }
 
-function animateHit(target){
-    let count=0;
-    const interval=setInterval(()=>{
-        ctx.clearRect(0,0,600,400);
-        if(target=="enemy"){
-            ctx.fillStyle=(count%2==0)?"white":"yellow";
-            ctx.fillRect(enemy.x,enemy.y,20,20);
-            ctx.fillStyle="red"; ctx.fillRect(playerPos.x,playerPos.y,20,20);
-        } else {
-            ctx.fillStyle=(count%2==0)?"white":"red";
-            ctx.fillRect(playerPos.x,playerPos.y,20,20);
-            ctx.fillStyle="yellow"; ctx.fillRect(enemy.x,enemy.y,20,20);
-        }
-        count++; if(count>5) clearInterval(interval);
-    },100);
 }
 
-function updateCombat(){document.getElementById("combatStats").innerText=`PV joueur : ${playerHP} | PV ennemi : ${enemyHP}`;}
+function flee(){
 
-function usePotion(){
-    if(player.potions>0){
-        playerHP+=30; if(playerHP>100) playerHP=100;
-        player.potions--; savePlayer();
-        updateCombat(); alert("Potion utilisée ! +30 PV");
-    } else alert("Pas de potion !");
+show("gameScreen")
+
 }
 
-function exitCombat(){ show("arena"); }
-
-function capturePokemon(){
-    const chance=Math.random();
-    if(chance>0.5){
-        alert("Vous avez capturé "+enemy.name+" !");
-        player.pokemons_caught.push({name:enemy.name,level:1});
-        gainLevel(player);
-        savePlayer();
-    } else alert(enemy.name+" a échappé !");
-    show("menu");
-}
-
-function gainLevel(player){
-    player.level=(player.level||1)+1;
-    checkEvolution(player);
-}
-
-function checkEvolution(pokemon){
-    if(evolutions[pokemon.pokemon] && pokemon.level>=evolutions[pokemon.pokemon].level){
-        alert(pokemon.pokemon+" évolue en "+evolutions[pokemon.pokemon].evolvesTo+" !");
-        pokemon.pokemon=evolutions[pokemon.pokemon].evolvesTo;
-        savePlayer();
-    }
-}
-
-// --- BOUTIQUE ---
-function buyPotion(){if(player.money>=20){player.money-=20;player.potions++;savePlayer();updateUI();}}
-
-// --- INVENTAIRE ---
-function showInventory(){
-    document.getElementById("inv").innerText="Potions : "+player.potions+"\nPokémon capturés : "+player.pokemons_caught.map(p=>p.name+" lvl "+p.level).join(", ");
-    show("inventory");
-}
-
-// --- UI ---
-function updateUI(){
-    document.getElementById("money").innerText=player.money;
-    document.getElementById("currentPokemon").innerText=player.pokemon+" lvl "+player.level;
-}
 </script>
 
 </body>
