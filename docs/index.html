@@ -2,15 +2,13 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Gabgame Pokémon</title>
-
+<title>Gabgame Pokémon Ultime</title>
 <style>
 body{
   font-family: Arial;
-  background:#e8f4ff;
+  background:#e0f7ff;
   text-align:center;
 }
-
 button{
   padding:10px 20px;
   margin:5px;
@@ -18,128 +16,204 @@ button{
   cursor:pointer;
   border-radius:8px;
 }
-
-#game{
+#game, #boutique{
   display:none;
 }
-
-img{
-  width:150px;
+#map{
+  display:inline-block;
+  margin-top:20px;
+}
+.cell{
+  width:50px;
+  height:50px;
+  display:inline-block;
+  border:1px solid #aaa;
+  vertical-align: top;
+  line-height:50px;
+  font-size:20px;
+}
+.player{
+  background:#ffecb3;
 }
 </style>
-
 </head>
 <body>
 
-<h1>🎮 Gabgame Pokémon</h1>
+<h1>🎮 Gabgame Pokémon Ultime</h1>
 
-<!-- MENU PRINCIPAL -->
 <div id="menu">
   <h2>Menu</h2>
-  <button onclick="startGame()">⚔️ Combat Pokémon</button>
+  <button onclick="choixPokemon()">🎴 Choisir Pokémon</button>
+  <button onclick="ouvrirBoutique()">🏪 Boutique</button>
 </div>
 
-<!-- ZONE DE JEU -->
 <div id="game">
   <h2 id="titre"></h2>
   <img id="pokemonImg">
+  <img id="ennemiImg">
   <p id="pv"></p>
   <div id="attaques"></div>
   <p id="result"></p>
   <p id="argent"></p>
+  <div id="map"></div>
   <br>
   <button onclick="retourMenu()">⬅ Retour menu</button>
 </div>
 
-<hr>
+<div id="boutique">
+<h2>🏪 Boutique</h2>
+<p>💰 Argent : <span id="argentBoutique">0</span></p>
+<button onclick="acheter('Potion')">Potion - 20 pièces</button>
+<button onclick="acheter('Super Potion')">Super Potion - 50 pièces</button>
+<br><br>
+<button onclick="retourMenu()">⬅ Retour menu</button>
+</div>
 
-<!-- BOUTON SOUTIEN -->
+<hr>
 <h3>💖 Soutenir le jeu</h3>
 <a href="#" target="_blank"><button>Faire un don</button></a>
 
 <script>
-// VARIABLES DU JEU
-let joueurPV;
-let ennemiPV;
-let joueur;
-let attaques;
-let argent = 0;
+// VARIABLES
+let joueurPV, ennemiPV, joueur, ennemi, attaques, argent=0;
+const mapSize=5;
+let playerPos={x:2,y:2};
 
-// POKÉMON DISPONIBLES
-const pokemons = {
-  "Salamèche": {attaques:["Flamme","Griffe","Croc Feu"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png"},
-  "Dracaufeu": {attaques:["Lance-flammes","Draco-Queue","Croc Feu"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png"},
-  "Caninos": {attaques:["Morsure","Flamme","Charge"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/58.png"},
-  "Ponyta": {attaques:["Charge","Ruade","Flamme"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/77.png"}
+const pokemons={
+"Salamèche":{attaques:["Flamme","Griffe","Croc Feu"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png"},
+"Dracaufeu":{attaques:["Lance-flammes","Draco-Queue","Croc Feu"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png"},
+"Caninos":{attaques:["Morsure","Flamme","Charge"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/58.png"},
+"Ponyta":{attaques:["Charge","Ruade","Flamme"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/77.png"}
 };
 
-// DÉBUT DU JEU
+const ennemis={
+"Aquagon":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png",
+"Pyrodrake":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/149.png",
+"Eaudragon":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/8.png"
+};
+
+// CHOIX DU POKÉMON
+function choixPokemon(){
+  let menu=document.getElementById("menu");
+  menu.innerHTML="<h2>Choisis ton Pokémon :</h2>";
+  Object.keys(pokemons).forEach(p=>{
+    let b=document.createElement("button");
+    b.innerText=p;
+    b.onclick=function(){
+      joueur=p;
+      attaques=pokemons[joueur].attaques;
+      joueurPV=100;
+      menu.style.display="none";
+      startGame();
+    };
+    menu.appendChild(b);
+  });
+}
+
+// DEBUT JEU
 function startGame(){
-  document.getElementById("menu").style.display="none";
   document.getElementById("game").style.display="block";
-
-  // Choisir un Pokémon aléatoire pour le joueur
-  let noms = Object.keys(pokemons);
-  joueur = noms[Math.floor(Math.random()*noms.length)];
-  attaques = pokemons[joueur].attaques;
-  document.getElementById("pokemonImg").src = pokemons[joueur].img;
-
-  // PV aléatoires
-  joueurPV = Math.floor(Math.random()*40)+60;
-  ennemiPV = Math.floor(Math.random()*40)+60;
-
-  document.getElementById("titre").innerHTML = "Tu envoies "+joueur+" ! L'ennemi envoie Aquagon !";
-
+  playerPos={x:2,y:2};
+  drawMap();
+  spawnEnnemi();
   updatePV();
+  createAttaques();
+}
 
-  // Créer les boutons d'attaque
-  let div = document.getElementById("attaques");
+// MAP
+function drawMap(){
+  let div=document.getElementById("map");
+  div.innerHTML="";
+  for(let y=0;y<mapSize;y++){
+    for(let x=0;x<mapSize;x++){
+      let cell=document.createElement("div");
+      cell.className="cell";
+      if(x===playerPos.x && y===playerPos.y) cell.classList.add("player");
+      div.appendChild(cell);
+    }
+    div.appendChild(document.createElement("br"));
+  }
+}
+
+// DEPLACEMENT
+document.addEventListener("keydown",function(e){
+  if(document.getElementById("game").style.display==="block"){
+    if(e.key==="ArrowUp" && playerPos.y>0) playerPos.y--;
+    if(e.key==="ArrowDown" && playerPos.y<mapSize-1) playerPos.y++;
+    if(e.key==="ArrowLeft" && playerPos.x>0) playerPos.x--;
+    if(e.key==="ArrowRight" && playerPos.x<mapSize-1) playerPos.x++;
+    drawMap();
+    if(Math.random()<0.2) spawnEnnemi();
+  }
+});
+
+// ENNEMI ALEATOIRE
+function spawnEnnemi(){
+  let noms=Object.keys(ennemis);
+  ennemi=noms[Math.floor(Math.random()*noms.length)];
+  ennemiPV=80 + Math.floor(Math.random()*40);
+  document.getElementById("titre").innerHTML="Rencontre ! "+ennemi+" apparait !";
+  document.getElementById("pokemonImg").src=pokemons[joueur].img;
+  document.getElementById("ennemiImg").src=ennemis[ennemi];
+}
+
+// CREER BOUTONS ATTAQUE
+function createAttaques(){
+  let div=document.getElementById("attaques");
   div.innerHTML="";
   attaques.forEach(a=>{
-    let b = document.createElement("button");
-    b.innerText = a;
-    b.onclick = function(){attaque(a)};
+    let b=document.createElement("button");
+    b.innerText=a;
+    b.onclick=function(){attaque(a)};
     div.appendChild(b);
   });
 }
 
-// METTRE À JOUR LES PV ET L’ARGENT
-function updatePV(){
-  document.getElementById("pv").innerHTML = joueur+" PV : "+joueurPV+" | Aquagon PV : "+ennemiPV;
-  document.getElementById("argent").innerHTML = "💰 Argent : "+argent;
-}
-
-// ATTAQUE DU JOUEUR ET DE L’ENNEMI
+// ATTAQUE
 function attaque(a){
-  let degatsJoueur = Math.floor(Math.random()*30)+10;
-  ennemiPV -= degatsJoueur;
-  let txt = joueur+" utilise "+a+" ! "+degatsJoueur+" dégâts<br>";
-
-  if(ennemiPV <= 0){
-    let gain = Math.floor(Math.random()*20)+10;
-    argent += gain;
-    document.getElementById("result").innerHTML = txt+"Aquagon est K.O ! 🎉<br>Tu gagnes "+gain+" pièces";
-    document.getElementById("attaques").innerHTML="";
+  let dJ=Math.floor(Math.random()*30)+10;
+  ennemiPV-=dJ;
+  let txt=joueur+" utilise "+a+" ! "+dJ+" dégâts<br>";
+  if(ennemiPV<=0){
+    let gain=Math.floor(Math.random()*50)+20;
+    argent+=gain;
+    document.getElementById("result").innerHTML=txt+ennemi+" K.O ! Tu gagnes "+gain+" pièces";
     updatePV();
     return;
   }
-
-  // Attaque ennemie
-  let degatsEnnemi = Math.floor(Math.random()*30)+10;
-  joueurPV -= degatsEnnemi;
-  txt += "Aquagon attaque ! "+degatsEnnemi+" dégâts";
-  if(joueurPV <= 0){
-    txt += "<br>"+joueur+" est K.O 😢";
-    document.getElementById("attaques").innerHTML="";
+  let dE=Math.floor(Math.random()*25)+10;
+  joueurPV-=dE;
+  txt+=ennemi+" attaque ! "+dE+" dégâts";
+  if(joueurPV<=0){
+    txt+="<br>"+joueur+" K.O 😢";
   }
-
-  document.getElementById("result").innerHTML = txt;
+  document.getElementById("result").innerHTML=txt;
   updatePV();
 }
 
-// REVENIR AU MENU
+// UPDATE PV & ARGENT
+function updatePV(){
+  document.getElementById("pv").innerHTML=joueur+" PV : "+joueurPV+" | "+ennemi+" PV : "+ennemiPV;
+  document.getElementById("argent").innerHTML="💰 Argent : "+argent;
+  document.getElementById("argentBoutique").innerText=argent;
+}
+
+// BOUTIQUE
+function ouvrirBoutique(){
+  document.getElementById("menu").style.display="none";
+  document.getElementById("boutique").style.display="block";
+}
+function acheter(item){
+  if(item=="Potion" && argent>=20){joueurPV+=30; argent-=20; alert("Potion utilisée ! +30 PV");}
+  else if(item=="Super Potion" && argent>=50){joueurPV+=70; argent-=50; alert("Super Potion utilisée ! +70 PV");}
+  else alert("Pas assez d'argent !");
+  updatePV();
+}
+
+// RETOUR MENU
 function retourMenu(){
   document.getElementById("game").style.display="none";
+  document.getElementById("boutique").style.display="none";
   document.getElementById("menu").style.display="block";
 }
 </script>
