@@ -5,10 +5,9 @@
 <title>Gabgame Pokémon</title>
 
 <style>
-
 body{
-font-family: Arial;
-background:#f0f8ff;
+font-family:Arial;
+background:#e8f4ff;
 text-align:center;
 }
 
@@ -17,35 +16,38 @@ padding:10px 20px;
 margin:5px;
 font-size:16px;
 cursor:pointer;
+border-radius:8px;
 }
 
-.menu{
-margin-top:40px;
-}
-
-.game{
+#game{
 display:none;
 }
 
-</style>
+img{
+width:150px;
+}
 
+</style>
 </head>
 
 <body>
 
 <h1>🎮 Gabgame Pokémon</h1>
 
-<div class="menu">
+<div id="menu">
 
 <h2>Menu</h2>
 
-<button onclick="startGame()">⚔️ Combat Pokémon</button>
+<button onclick="startGame()">⚔️ Combat</button>
 
 </div>
 
-<div id="game" class="game">
+
+<div id="game">
 
 <h2 id="titre"></h2>
+
+<img id="pokemonImg">
 
 <p id="pv"></p>
 
@@ -53,21 +55,151 @@ display:none;
 
 <p id="result"></p>
 
+<p id="argent"></p>
+
 <br>
 
-<button onclick="location.reload()">Retour au menu</button>
+<button onclick="retourMenu()">⬅ Retour menu</button>
 
 </div>
 
 <hr>
 
-<h3>💖 Soutenir le créateur</h3>
+<h3>💖 Soutenir le jeu</h3>
+<a href="#"><button>Faire un don</button></a>
 
-<a href="#" target="_blank">
-<button>Faire un don</button>
-</a>
 
 <script>
 
 let joueurPV
-let enne
+let ennemiPV
+let joueur
+let attaques
+let argent=0
+
+const pokemons={
+"Salamèche":{
+attaques:["Flamme","Griffe","Croc Feu"],
+img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png"
+},
+
+"Dracaufeu":{
+attaques:["Lance-flammes","Draco-Queue","Croc Feu"],
+img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png"
+},
+
+"Caninos":{
+attaques:["Morsure","Flamme","Charge"],
+img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/58.png"
+},
+
+"Ponyta":{
+attaques:["Charge","Ruade","Flamme"],
+img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/77.png"
+}
+}
+
+function startGame(){
+
+document.getElementById("menu").style.display="none"
+document.getElementById("game").style.display="block"
+
+let noms=Object.keys(pokemons)
+
+joueur=noms[Math.floor(Math.random()*noms.length)]
+
+attaques=pokemons[joueur].attaques
+
+document.getElementById("pokemonImg").src=pokemons[joueur].img
+
+joueurPV=Math.floor(Math.random()*40)+60
+ennemiPV=Math.floor(Math.random()*40)+60
+
+document.getElementById("titre").innerHTML=
+"Tu envoies "+joueur+" ! L'ennemi envoie Aquagon !"
+
+updatePV()
+
+let div=document.getElementById("attaques")
+div.innerHTML=""
+
+attaques.forEach(a=>{
+
+let b=document.createElement("button")
+
+b.innerText=a
+
+b.onclick=function(){attaque(a)}
+
+div.appendChild(b)
+
+})
+
+}
+
+function updatePV(){
+
+document.getElementById("pv").innerHTML=
+joueur+" PV : "+joueurPV+" | Aquagon PV : "+ennemiPV
+
+document.getElementById("argent").innerHTML=
+"💰 Argent : "+argent
+
+}
+
+function attaque(a){
+
+let d=Math.floor(Math.random()*30)+10
+
+ennemiPV-=d
+
+let txt=joueur+" utilise "+a+" ! "+d+" dégâts<br>"
+
+if(ennemiPV<=0){
+
+let gain=Math.floor(Math.random()*20)+10
+
+argent+=gain
+
+document.getElementById("result").innerHTML=
+txt+"Aquagon est K.O ! 🎉<br>Tu gagnes "+gain+" pièces"
+
+document.getElementById("attaques").innerHTML=""
+
+updatePV()
+
+return
+
+}
+
+let d2=Math.floor(Math.random()*30)+10
+
+joueurPV-=d2
+
+txt+="Aquagon attaque ! "+d2+" dégâts"
+
+if(joueurPV<=0){
+
+txt+="<br>"+joueur+" est K.O 😢"
+
+document.getElementById("attaques").innerHTML=""
+
+}
+
+document.getElementById("result").innerHTML=txt
+
+updatePV()
+
+}
+
+function retourMenu(){
+
+document.getElementById("game").style.display="none"
+document.getElementById("menu").style.display="block"
+
+}
+
+</script>
+
+</body>
+</html>
