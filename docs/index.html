@@ -1,62 +1,36 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Gabgame Pokémon</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jeu de Pokémon</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
 <style>
 
 body{
-margin:0;
 font-family:Arial;
+text-align:center;
 background:#111;
 color:white;
-text-align:center;
+margin:0;
+}
+
+.screen{
+display:none;
 }
 
 button{
-padding:10px 18px;
-margin:6px;
-border:none;
-border-radius:8px;
+padding:10px;
+margin:5px;
 font-size:16px;
 cursor:pointer;
 }
 
-#menu,#combat,#boutique,#inventaire,#don{
-position:absolute;
-top:50%;
-left:50%;
-transform:translate(-50%,-50%);
-}
-
 canvas{
-background:#4ec5f1;
-display:none;
+background:#6bd3ff;
 margin:auto;
-}
-
-#joystick{
-position:absolute;
-bottom:30px;
-left:30px;
-width:120px;
-height:120px;
-border-radius:50%;
-background:rgba(255,255,255,0.15);
-display:none;
-touch-action:none;
-}
-
-#stick{
-width:50px;
-height:50px;
-border-radius:50%;
-background:white;
-position:absolute;
-top:35px;
-left:35px;
+display:block;
 }
 
 </style>
@@ -64,30 +38,73 @@ left:35px;
 
 <body>
 
-<div id="menu">
+<div id="home" class="screen">
 
-<h1>🎮 Gabgame Pokémon</h1>
+<h1>Jeu de Pokémon</h1>
 
-<button onclick="startGame()">Démarrer</button><br>
-<button onclick="openShop()">Boutique</button><br>
-<button onclick="openInventory()">Inventaire</button><br>
-<button onclick="openDon()">Don</button>
+<button onclick="show('login')">Se connecter</button>
+
+<button onclick="playGuest()">Jouer sans compte</button>
 
 </div>
 
-<canvas id="game" width="600" height="500"></canvas>
 
-<div id="joystick">
-<div id="stick"></div>
+<div id="login" class="screen">
+
+<h2>Connexion</h2>
+
+<input id="email" placeholder="email"><br>
+<input id="password" type="password" placeholder="mot de passe"><br>
+
+<button onclick="login()">Connexion</button>
+
+<button onclick="show('home')">Retour</button>
+
 </div>
 
-<div id="combat" style="display:none">
+
+<div id="choose" class="screen">
+
+<h2>Choisis ton Pokémon</h2>
+
+<button onclick="choosePokemon('Salamèche')">Salamèche</button>
+
+<button onclick="choosePokemon('Carapuce')">Carapuce</button>
+
+<button onclick="choosePokemon('Bulbizarre')">Bulbizarre</button>
+
+</div>
+
+
+<div id="menu" class="screen">
+
+<h2>Menu</h2>
+
+<button onclick="startArena()">Jouer</button>
+<button onclick="show('shop')">Boutique</button>
+<button onclick="showInventory()">Inventaire</button>
+
+<p>Argent : <span id="money"></span></p>
+
+</div>
+
+
+<div id="arena" class="screen">
+
+<canvas id="game" width="600" height="400"></canvas>
+
+<button onclick="show('menu')">Retour</button>
+
+</div>
+
+
+<div id="combat" class="screen">
 
 <h2 id="enemyName"></h2>
 
-<p id="combatStats"></p>
+<div id="attacks"></div>
 
-<div id="attackButtons"></div>
+<p id="combatStats"></p>
 
 <button onclick="usePotion()">Potion</button>
 
@@ -95,134 +112,216 @@ left:35px;
 
 </div>
 
-<div id="boutique" style="display:none">
+
+<div id="shop" class="screen">
+
 <h2>Boutique</h2>
-<p>Argent : <span id="moneyDisplay">0</span></p>
-<button onclick="buyPotion()">Potion +30PV (20)</button><br>
-<button onclick="returnMenu()">Retour</button>
+
+<button onclick="buyPotion()">Potion (20)</button>
+
+<button onclick="show('menu')">Retour</button>
+
 </div>
 
-<div id="inventaire" style="display:none">
+
+<div id="inventory" class="screen">
+
 <h2>Inventaire</h2>
-<p id="inventoryText">Potions : 0</p>
-<button onclick="returnMenu()">Retour</button>
+
+<p id="inv"></p>
+
+<button onclick="show('menu')">Retour</button>
+
 </div>
 
-<div id="don" style="display:none">
-<h2>Merci pour ton soutien ❤️</h2>
-<button onclick="returnMenu()">Retour</button>
-</div>
 
 <script>
+
+/* SUPABASE */
+
+const SUPABASE_URL="https://tyitqidjzgoqpmuhuioq.supabase.co"
+
+const SUPABASE_KEY="sb_publishable_dFLgsifzFbrSBDAht6qERA_UtcOHSyn"
+
+const supabaseClient=supabase.createClient(
+SUPABASE_URL,
+SUPABASE_KEY
+)
+
+/* ETAT JOUEUR */
+
+let player={
+pokemon:null,
+money:0,
+potions:0,
+pokemons_caught:[]
+}
+
+let logged=false
+let enemyHP=100
+let playerHP=100
+
+/* NAVIGATION */
+
+function show(id){
+
+document.querySelectorAll(".screen").forEach(s=>{
+s.style.display="none"
+})
+
+document.getElementById(id).style.display="block"
+
+}
+
+show("home")
+
+/* JOUER SANS COMPTE */
+
+function playGuest(){
+
+show("choose")
+
+}
+
+/* LOGIN */
+
+async function login(){
+
+const email=document.getElementById("email").value
+const password=document.getElementById("password").value
+
+const {data,error}=await supabaseClient.auth.signInWithPassword({
+email:email,
+password:password
+})
+
+if(error){
+
+alert("Erreur connexion")
+
+return
+}
+
+logged=true
+
+loadPlayer()
+
+}
+
+/* CHARGER JOUEUR */
+
+async function loadPlayer(){
+
+const user=await supabaseClient.auth.getUser()
+
+const {data}=await supabaseClient
+.from("players")
+.select("*")
+.eq("id",user.data.user.id)
+.single()
+
+player=data
+
+updateUI()
+
+show("menu")
+
+}
+
+/* SAUVEGARDE */
+
+async function savePlayer(){
+
+if(!logged)return
+
+const user=await supabaseClient.auth.getUser()
+
+await supabaseClient
+.from("players")
+.update(player)
+.eq("id",user.data.user.id)
+
+}
+
+/* CHOIX POKEMON */
+
+function choosePokemon(name){
+
+player.pokemon=name
+
+updateUI()
+
+show("menu")
+
+}
+
+/* ARENE */
 
 const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
 
-let player={x:300,y:250,size:20}
-let speed={x:0,y:0}
+let enemy={x:300,y:200,name:"Rattata"}
 
-let pokemons=[
-{name:"Salamèche",x:120,y:120,size:20,color:"orange"},
-{name:"Caninos",x:480,y:200,size:20,color:"brown"},
-{name:"Ponyta",x:300,y:420,size:20,color:"yellow"}
-]
+function startArena(){
 
-let money=0
-let potions=0
+show("arena")
 
-let playerHP=100
-let enemyHP=0
-let enemy=""
-let fighting=false
-let currentEnemy=null
-
-function startGame(){
-
-hideAll()
-
-canvas.style.display="block"
-document.getElementById("joystick").style.display="block"
-
-requestAnimationFrame(gameLoop)
+draw()
 
 }
 
-function hideAll(){
+function draw(){
 
-document.getElementById("menu").style.display="none"
-document.getElementById("combat").style.display="none"
-document.getElementById("boutique").style.display="none"
-document.getElementById("inventaire").style.display="none"
-document.getElementById("don").style.display="none"
-
-}
-
-function gameLoop(){
-
-if(!fighting){
-
-ctx.clearRect(0,0,canvas.width,canvas.height)
-
-player.x+=speed.x
-player.y+=speed.y
-
-player.x=Math.max(0,Math.min(canvas.width,player.x))
-player.y=Math.max(0,Math.min(canvas.height,player.y))
+ctx.clearRect(0,0,600,400)
 
 ctx.fillStyle="red"
-ctx.fillRect(player.x-10,player.y-10,20,20)
 
-pokemons.forEach(p=>{
+ctx.fillRect(280,180,20,20)
 
-ctx.fillStyle=p.color
-ctx.fillRect(p.x-10,p.y-10,20,20)
+ctx.fillStyle="yellow"
 
-if(Math.abs(player.x-p.x)<20 && Math.abs(player.y-p.y)<20){
-
-startCombat(p)
+ctx.fillRect(enemy.x,enemy.y,20,20)
 
 }
 
-})
+/* COMBAT */
 
-}
-
-requestAnimationFrame(gameLoop)
-
-}
-
-function startCombat(p){
-
-fighting=true
-
-currentEnemy=p
-
-enemy=p.name
+function startCombat(){
 
 enemyHP=100
 playerHP=100
 
-canvas.style.display="none"
-
-document.getElementById("combat").style.display="block"
-document.getElementById("enemyName").innerText="Combat contre "+enemy
+document.getElementById("enemyName").innerText="Combat contre "+enemy.name
 
 createAttacks()
 
-updateCombat()
+show("combat")
+
+}
+
+function getAttacks(){
+
+if(player.pokemon=="Salamèche")
+return ["Flammèche","Crocs Feu","Lance-Flammes"]
+
+if(player.pokemon=="Carapuce")
+return ["Pistolet à O","Morsure","Hydrocanon"]
+
+if(player.pokemon=="Bulbizarre")
+return ["Fouet Lianes","Tranch'Herbe","Canon Graine"]
 
 }
 
 function createAttacks(){
 
-const div=document.getElementById("attackButtons")
+const div=document.getElementById("attacks")
+
 div.innerHTML=""
 
-let attacks=["Attaque 1","Attaque 2","Attaque 3"]
-
-attacks.forEach(a=>{
+getAttacks().forEach(a=>{
 
 let b=document.createElement("button")
+
 b.innerText=a
 
 b.onclick=()=>attack()
@@ -236,178 +335,94 @@ div.appendChild(b)
 function attack(){
 
 let dmg=Math.floor(Math.random()*20)+10
+
 enemyHP-=dmg
 
 if(enemyHP<=0){
 
-money+=20
+player.money+=20
 
-alert("Victoire ! +20")
+player.pokemons_caught.push(enemy.name)
 
-removeEnemy()
+savePlayer()
 
-exitCombat()
+alert("Victoire")
+
+updateUI()
+
+show("menu")
 
 return
 
 }
 
-let counter=Math.floor(Math.random()*15)+5
-playerHP-=counter
-
-if(playerHP<=0){
-
-alert("Tu es KO")
-
-exitCombat()
-
-}
+playerHP-=10
 
 updateCombat()
-
-}
-
-function usePotion(){
-
-if(potions>0){
-
-playerHP+=30
-potions--
-
-updateCombat()
-
-}
 
 }
 
 function updateCombat(){
 
 document.getElementById("combatStats").innerText=
-"PV Joueur : "+playerHP+" | PV Ennemi : "+enemyHP
+"PV joueur "+playerHP+" | PV ennemi "+enemyHP
 
 }
 
-function exitCombat(){
+/* POTION */
 
-fighting=false
+function usePotion(){
 
-document.getElementById("combat").style.display="none"
+if(player.potions>0){
 
-canvas.style.display="block"
+playerHP+=30
 
-}
+player.potions--
 
-function removeEnemy(){
-
-pokemons=pokemons.filter(e=>e!==currentEnemy)
+savePlayer()
 
 }
 
-document.addEventListener("keydown",e=>{
-
-if(e.key==="ArrowUp") speed.y=-3
-if(e.key==="ArrowDown") speed.y=3
-if(e.key==="ArrowLeft") speed.x=-3
-if(e.key==="ArrowRight") speed.x=3
-
-})
-
-document.addEventListener("keyup",e=>{
-
-if(e.key==="ArrowUp"||e.key==="ArrowDown") speed.y=0
-if(e.key==="ArrowLeft"||e.key==="ArrowRight") speed.x=0
-
-})
-
-function openShop(){
-
-hideAll()
-
-document.getElementById("boutique").style.display="block"
-updateMoney()
-
 }
+
+/* BOUTIQUE */
 
 function buyPotion(){
 
-if(money>=20){
+if(player.money>=20){
 
-money-=20
-potions++
+player.money-=20
 
-updateMoney()
+player.potions++
 
-}
+savePlayer()
 
-}
-
-function updateMoney(){
-
-document.getElementById("moneyDisplay").innerText=money
+updateUI()
 
 }
 
-function openInventory(){
+}
 
-hideAll()
+/* INVENTAIRE */
 
-document.getElementById("inventaire").style.display="block"
+function showInventory(){
 
-document.getElementById("inventoryText").innerText=
-"Potions : "+potions
+document.getElementById("inv").innerText=
+
+"Potions : "+player.potions+
+"\nPokémon battus : "+player.pokemons_caught.join(",")
+
+show("inventory")
 
 }
 
-function openDon(){
+/* UI */
 
-hideAll()
+function updateUI(){
 
-document.getElementById("don").style.display="block"
-
-}
-
-function returnMenu(){
-
-canvas.style.display="none"
-document.getElementById("joystick").style.display="none"
-
-document.getElementById("menu").style.display="block"
+document.getElementById("money").innerText=player.money
 
 }
-
-const stick=document.getElementById("stick")
-const base=document.getElementById("joystick")
-
-let drag=false
-
-base.addEventListener("touchstart",()=>drag=true)
-
-base.addEventListener("touchmove",e=>{
-
-if(!drag)return
-
-let rect=base.getBoundingClientRect()
-
-let x=e.touches[0].clientX-rect.left-60
-let y=e.touches[0].clientY-rect.top-60
-
-stick.style.transform=`translate(${x}px,${y}px)`
-
-speed.x=x/15
-speed.y=y/15
-
-})
-
-base.addEventListener("touchend",()=>{
-
-drag=false
-
-stick.style.transform=""
-
-speed.x=0
-speed.y=0
-
-})
 
 </script>
 
