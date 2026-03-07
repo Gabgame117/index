@@ -2,12 +2,13 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Mini Pokémon Game</title>
+<title>Gabgame Pokémon GO-like</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.5/dist/leaflet.css"/>
 <style>
-body{margin:0;font-family:Arial;}
-canvas{background:#a0e0ff;display:block;margin:0 auto;}
-#menu,#combat,#boutique,#inventaire,#don{text-align:center;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);}
+body{margin:0;font-family:Arial;overflow:hidden;}
+#menu,#combat,#boutique,#inventaire,#don{text-align:center;}
+#map{position:absolute;top:0;left:0;right:0;bottom:0;display:none;}
 button{padding:8px 14px;margin:5px;border-radius:8px;font-size:16px;cursor:pointer;}
 #joystick{position:absolute;bottom:20px;left:20px;width:120px;height:120px;border-radius:50%;background:rgba(0,0,0,0.2);touch-action:none;display:none;}
 #stick{position:absolute;top:35px;left:35px;width:50px;height:50px;border-radius:50%;background:rgba(0,0,0,0.5);}
@@ -15,15 +16,16 @@ button{padding:8px 14px;margin:5px;border-radius:8px;font-size:16px;cursor:point
 </head>
 <body>
 
+<h1 style="text-align:center;">🎮 Gabgame Pokémon</h1>
+
 <div id="menu">
-  <h1>🎮 Mini Pokémon Game</h1>
   <button onclick="demarrer()">🎴 Démarrer</button><br>
   <button onclick="ouvrirBoutique()">🏪 Boutique</button><br>
   <button onclick="ouvrirInventaire()">🗂 Inventaire</button><br>
   <button onclick="ouvrirDon()">💖 Faire un don</button>
 </div>
 
-<canvas id="arena" width="500" height="500" style="display:none;"></canvas>
+<div id="map"></div>
 <div id="joystick"><div id="stick"></div></div>
 
 <div id="combat">
@@ -31,48 +33,35 @@ button{padding:8px 14px;margin:5px;border-radius:8px;font-size:16px;cursor:point
   <p id="combatPv"></p>
   <div id="attaques"></div>
   <button onclick="utiliserPotion()">🍶 Utiliser Potion</button>
-  <button onclick="quitterCombat()">⬅ Retour Arène</button>
+  <button onclick="quitterCombat()">⬅ Retour Carte</button>
 </div>
 
 <div id="boutique"><p>💰 Argent : <span id="argentBoutique">0</span></p><button onclick="retourMenu()">⬅ Menu</button></div>
 <div id="inventaire"><p id="listePokemons">Aucun Pokémon</p><button onclick="retourMenu()">⬅ Menu</button></div>
 <div id="don"><button onclick="retourMenu()">⬅ Menu</button></div>
 
+<script src="https://unpkg.com/leaflet@1.9.5/dist/leaflet.js"></script>
 <script>
 // === VARIABLES ===
-let canvas = document.getElementById("arena");
-let ctx = canvas.getContext("2d");
-let largeur = canvas.width;
-let hauteur = canvas.height;
+let argent=0, joueurPV=0, ennemiPV=0, ennemiNom="", combatEnCours=false;
+let joueurEquipe=[], pokemonsSurCarte=[];
 
-let joueur = {x:250,y:250,taille:20,couleur:"red"};
-let pokemons = [
-  {nom:"Salamèche",x:100,y:100,taille:20,couleur:"orange"},
-  {nom:"Caninos",x:400,y:150,taille:20,couleur:"brown"},
-  {nom:"Ponyta",x:200,y:400,taille:20,couleur:"yellow"}
-];
+// Pokémon de base avec image
+const pokemonsBase={
+  "Salamèche":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png",
+  "Caninos":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/58.png",
+  "Ponyta":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/77.png"
+};
 
-let argent = 0;
-let joueurPV = 100, ennemiPV = 0;
-let ennemiNom = "";
-let combatEnCours = false;
-
-// === DEPLACEMENT CLAVIER ===
-let move={x:0,y:0};
-document.addEventListener("keydown", e=>{
-  if(e.key=="ArrowUp") move.y=-2;
-  if(e.key=="ArrowDown") move.y=2;
-  if(e.key=="ArrowLeft") move.x=-2;
-  if(e.key=="ArrowRight") move.x=2;
-});
-document.addEventListener("keyup", e=>{
-  if(e.key=="ArrowUp"||e.key=="ArrowDown") move.y=0;
-  if(e.key=="ArrowLeft"||e.key=="ArrowRight") move.x=0;
-});
+// === INITIALISER LEAFLET ===
+const map = L.map('map').setView([44.83779, -0.57918], 16);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  attribution:'© OpenStreetMap'
+}).addTo(map);
 
 // === JOYSTICK MOBILE ===
 const stick=document.getElementById("stick"), base=document.getElementById("joystick");
-let dragging=false;
+let move={x:0,y:0}, dragging=false;
 base.addEventListener("touchstart",()=>dragging=true);
 base.addEventListener("touchmove", e=>{
   if(!dragging) return;
@@ -80,82 +69,81 @@ base.addEventListener("touchmove", e=>{
   let x=(e.touches[0].clientX-rect.left-60);
   let y=(e.touches[0].clientY-rect.top-60);
   stick.style.transform=`translate(${x}px,${y}px)`;
-  move.x = x/20; move.y = y/20;
+  move.x = x/40; move.y = y/40;
 });
 base.addEventListener("touchend",()=>{dragging=false; stick.style.transform=""; move.x=0; move.y=0;});
+
+// === PLACER DES POKÉMON SUR LA CARTE (markers) ===
+const positions=[
+  [44.838,-0.579],
+  [44.836,-0.578],
+  [44.837,-0.577]
+];
+
+positions.forEach((pos,i)=>{
+  let nom = Object.keys(pokemonsBase)[i];
+  let icon = L.icon({
+    iconUrl: pokemonsBase[nom],
+    iconSize: [50,50]
+  });
+  let marker = L.marker(pos,{icon:icon}).addTo(map);
+  pokemonsSurCarte.push({nom,marker,pos});
+  marker.on('click', ()=>commencerCombat(nom));
+});
+
+// === DEPLACEMENT CLAVIER ===
+let playerPos={lat:44.83779,lng:-0.57918};
+document.addEventListener('keydown', e=>{
+  let delta=0.0002;
+  if(e.key==='ArrowUp') playerPos.lat+=delta;
+  if(e.key==='ArrowDown') playerPos.lat-=delta;
+  if(e.key==='ArrowLeft') playerPos.lng-=delta;
+  if(e.key==='ArrowRight') playerPos.lng+=delta;
+  map.setView([playerPos.lat,playerPos.lng]);
+});
 
 // === DEMARRER ===
 function demarrer(){
   document.getElementById("menu").style.display="none";
-  canvas.style.display="block";
+  map._container.style.display="block";
   document.getElementById("joystick").style.display="block";
-  requestAnimationFrame(loop);
-}
-
-// === BOUCLE ARÈNE ===
-function loop(){
-  if(!combatEnCours){
-    ctx.clearRect(0,0,largeur,hauteur);
-    joueur.x += move.x;
-    joueur.y += move.y;
-    // Limites
-    if(joueur.x<0) joueur.x=0;
-    if(joueur.x>largeur) joueur.x=largeur;
-    if(joueur.y<0) joueur.y=0;
-    if(joueur.y>hauteur) joueur.y=hauteur;
-
-    // Dessiner joueur
-    ctx.fillStyle=joueur.couleur;
-    ctx.fillRect(joueur.x-joueur.taille/2,joueur.y-joueur.taille/2,joueur.taille,joueur.taille);
-
-    // Dessiner pokemons
-    pokemons.forEach(p=>{
-      ctx.fillStyle=p.couleur;
-      ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
-
-      // Collision joueur
-      if(Math.abs(joueur.x-p.x)<20 && Math.abs(joueur.y-p.y)<20){
-        commencerCombat(p.nom);
-      }
-    });
-  }
-  requestAnimationFrame(loop);
 }
 
 // === COMBAT ===
 function commencerCombat(nom){
-  combatEnCours=true;
-  ennemiNom=nom;
-  ennemiPV=100;
-  joueurPV=100;
-  canvas.style.display="none";
+  combatEnCours = true;
+  ennemiNom = nom;
+  ennemiPV = 100;
+  joueurPV = 100;
+  document.getElementById("combatTitre").innerText="Combat contre "+nom+" !";
+  document.getElementById("map").style.display="none";
   document.getElementById("combat").style.display="block";
   afficherAttaques();
   updateCombat();
 }
 
 function afficherAttaques(){
-  let div=document.getElementById("attaques");
-  div.innerHTML="";
-  ["Flamme","Croc Feu","Boule de Feu"].forEach(a=>{
-    let b=document.createElement("button");
-    b.innerText=a;
-    b.onclick=()=>attaque(a);
+  let div = document.getElementById("attaques");
+  div.innerHTML = "";
+  ["Attaque 1","Attaque 2","Attaque 3"].forEach(a=>{
+    let b = document.createElement("button");
+    b.innerText = a;
+    b.onclick = ()=>attaque(a);
     div.appendChild(b);
   });
 }
 
 function attaque(a){
-  let degats=Math.floor(Math.random()*20)+10;
-  ennemiPV-=degats;
+  let degats = Math.floor(Math.random()*20)+10;
+  ennemiPV -= degats;
   if(ennemiPV<=0){
     argent+=20;
     alert(ennemiNom+" K.O ! +20 pièces");
     quitterCombat();
     return;
   }
-  let contre=Math.floor(Math.random()*15)+5;
-  joueurPV-=contre;
+  let contre = Math.floor(Math.random()*15)+5;
+  joueurPV -= contre;
   if(joueurPV<=0) alert("Tu es K.O...");
   updateCombat();
 }
@@ -176,7 +164,7 @@ function updateCombat(){
 function quitterCombat(){
   combatEnCours=false;
   document.getElementById("combat").style.display="none";
-  canvas.style.display="block";
+  document.getElementById("map").style.display="block";
 }
 
 // === MENU / AUTRES ===
@@ -189,7 +177,7 @@ function retourMenu(){
   document.getElementById("inventaire").style.display="none";
   document.getElementById("don").style.display="none";
   document.getElementById("combat").style.display="none";
-  canvas.style.display="block";
+  map._container.style.display="block";
 }
 </script>
 </body>
