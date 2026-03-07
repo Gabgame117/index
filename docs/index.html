@@ -2,8 +2,8 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Gabgame Pokémon 3D GO-like</title>
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Gabgame Pokémon GO-like</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.5/dist/leaflet.css"/>
 <style>
 body{margin:0;font-family:Arial;overflow:hidden;}
@@ -16,7 +16,7 @@ button{padding:8px 14px;margin:5px;border-radius:8px;font-size:16px;cursor:point
 </head>
 <body>
 
-<h1 style="text-align:center;">🎮 Gabgame Pokémon 3D</h1>
+<h1 style="text-align:center;">🎮 Gabgame Pokémon</h1>
 
 <div id="menu">
   <button onclick="demarrer()">🎴 Démarrer</button><br>
@@ -41,13 +41,10 @@ button{padding:8px 14px;margin:5px;border-radius:8px;font-size:16px;cursor:point
 <div id="don"><button onclick="retourMenu()">⬅ Menu</button></div>
 
 <script src="https://unpkg.com/leaflet@1.9.5/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-
 <script>
-// === VARIABLES JEU ===
-let argent=0, joueurEquipe=[], pokemonsSurCarte=[], combatEnCours=false;
-let joueurPV=0, ennemiPV=0, ennemiNom="";
-let scene, camera, renderer, pokemonMeshes=[];
+// === VARIABLES ===
+let argent=0, joueurPV=0, ennemiPV=0, ennemiNom="", combatEnCours=false;
+let joueurEquipe=[], pokemonsSurCarte=[];
 
 // Pokémon de base avec image
 const pokemonsBase={
@@ -76,64 +73,40 @@ base.addEventListener("touchmove", e=>{
 });
 base.addEventListener("touchend",()=>{dragging=false; stick.style.transform=""; move.x=0; move.y=0;});
 
-// === PLACER DES POKÉMON SUR LA CARTE ===
+// === PLACER DES POKÉMON SUR LA CARTE (markers) ===
 const positions=[
   [44.838,-0.579],
   [44.836,-0.578],
   [44.837,-0.577]
-]; 
+];
 
-// Initialiser Three.js pour les Pokémon
-scene = new THREE.Scene();
-camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight,0.1,1000);
-renderer = new THREE.WebGLRenderer({alpha:true});
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.domElement.style.position="absolute";
-renderer.domElement.style.top="0";
-renderer.domElement.style.left="0";
-renderer.domElement.style.pointerEvents="none"; // pour ne pas bloquer Leaflet
-document.getElementById('map').appendChild(renderer.domElement);
-
-// Ajouter Pokémon en 3D
 positions.forEach((pos,i)=>{
   let nom = Object.keys(pokemonsBase)[i];
-  pokemonsSurCarte.push({nom,position:pos});
-  let texture = new THREE.TextureLoader().load(pokemonsBase[nom]);
-  let geometry = new THREE.BoxGeometry(0.001,0.001,0.001);
-  let material = new THREE.MeshBasicMaterial({map:texture});
-  let cube = new THREE.Mesh(geometry,material);
-  cube.position.set(pos[1],0,pos[0]);
-  scene.add(cube);
-  pokemonMeshes.push({nom,cube,pos});
+  let icon = L.icon({
+    iconUrl: pokemonsBase[nom],
+    iconSize: [50,50]
+  });
+  let marker = L.marker(pos,{icon:icon}).addTo(map);
+  pokemonsSurCarte.push({nom,marker,pos});
+  marker.on('click', ()=>commencerCombat(nom));
 });
 
-// === DÉPLACEMENT ===
+// === DEPLACEMENT CLAVIER ===
 let playerPos={lat:44.83779,lng:-0.57918};
-function deplacerPerso(){
-  playerPos.lat += move.y*0.0002;
-  playerPos.lng += move.x*0.0002;
+document.addEventListener('keydown', e=>{
+  let delta=0.0002;
+  if(e.key==='ArrowUp') playerPos.lat+=delta;
+  if(e.key==='ArrowDown') playerPos.lat-=delta;
+  if(e.key==='ArrowLeft') playerPos.lng-=delta;
+  if(e.key==='ArrowRight') playerPos.lng+=delta;
   map.setView([playerPos.lat,playerPos.lng]);
+});
 
-  if(combatEnCours){requestAnimationFrame(deplacerPerso); return;}
-
-  pokemonMeshes.forEach(p=>{
-    let dist = Math.hypot(playerPos.lat - p.pos[0], playerPos.lng - p.pos[1]);
-    if(dist<0.0005 && !combatEnCours) commencerCombat(p.nom);
-  });
-
-  camera.position.set(playerPos.lng,0,playerPos.lat);
-  camera.lookAt(new THREE.Vector3(playerPos.lng,0,playerPos.lat+0.001));
-  renderer.render(scene,camera);
-
-  requestAnimationFrame(deplacerPerso);
-}
-
-// === DÉMARRER ===
+// === DEMARRER ===
 function demarrer(){
   document.getElementById("menu").style.display="none";
   map._container.style.display="block";
   document.getElementById("joystick").style.display="block";
-  deplacerPerso();
 }
 
 // === COMBAT ===
@@ -142,7 +115,6 @@ function commencerCombat(nom){
   ennemiNom = nom;
   ennemiPV = 100;
   joueurPV = 100;
-
   document.getElementById("combatTitre").innerText="Combat contre "+nom+" !";
   document.getElementById("map").style.display="none";
   document.getElementById("combat").style.display="block";
