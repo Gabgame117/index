@@ -2,64 +2,46 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Gabgame Pokémon Ultime</title>
+<title>Gabgame Pokémon Ultime + Capture</title>
 <style>
-body{
-  font-family: Arial;
-  background:#e0f7ff;
-  text-align:center;
-}
-button{
-  padding:10px 20px;
-  margin:5px;
-  font-size:16px;
-  cursor:pointer;
-  border-radius:8px;
-}
-#game, #boutique{
-  display:none;
-}
-#map{
-  display:inline-block;
-  margin-top:20px;
-}
-.cell{
-  width:50px;
-  height:50px;
-  display:inline-block;
-  border:1px solid #aaa;
-  vertical-align: top;
-  line-height:50px;
-  font-size:20px;
-}
-.player{
-  background:#ffecb3;
-}
+body{font-family:Arial; background:#e0f7ff; text-align:center;}
+button{padding:10px 20px;margin:5px;font-size:16px;cursor:pointer;border-radius:8px;}
+#game,#boutique,#don,#inventaire{display:none;}
+#map{display:inline-block;margin-top:20px;}
+.cell{width:50px;height:50px;display:inline-block;border:1px solid #aaa;vertical-align:top;line-height:50px;font-size:20px;}
+.player{background:#ffecb3;}
+#menu{font-size:24px;}
+#don{font-size:14px;}
 </style>
 </head>
 <body>
 
 <h1>🎮 Gabgame Pokémon Ultime</h1>
 
+<!-- MENU -->
 <div id="menu">
-  <h2>Menu</h2>
-  <button onclick="choixPokemon()">🎴 Choisir Pokémon</button>
-  <button onclick="ouvrirBoutique()">🏪 Boutique</button>
+<h2>Menu</h2>
+<button onclick="choixPokemon()">🎴 Choisir Pokémon</button>
+<button onclick="ouvrirBoutique()">🏪 Boutique</button>
+<button onclick="ouvrirInventaire()">🗂 Inventaire</button>
+<button onclick="ouvrirDon()">💖 Faire un don</button>
 </div>
 
+<!-- JEU -->
 <div id="game">
-  <h2 id="titre"></h2>
-  <img id="pokemonImg">
-  <img id="ennemiImg">
-  <p id="pv"></p>
-  <div id="attaques"></div>
-  <p id="result"></p>
-  <p id="argent"></p>
-  <div id="map"></div>
-  <br>
-  <button onclick="retourMenu()">⬅ Retour menu</button>
+<h2 id="titre"></h2>
+<img id="pokemonImg">
+<img id="ennemiImg">
+<p id="pv"></p>
+<div id="attaques"></div>
+<p id="result"></p>
+<p id="argent"></p>
+<div id="map"></div>
+<br>
+<button onclick="retourMenu()">⬅ Retour menu</button>
 </div>
 
+<!-- BOUTIQUE -->
 <div id="boutique">
 <h2>🏪 Boutique</h2>
 <p>💰 Argent : <span id="argentBoutique">0</span></p>
@@ -69,16 +51,31 @@ button{
 <button onclick="retourMenu()">⬅ Retour menu</button>
 </div>
 
-<hr>
-<h3>💖 Soutenir le jeu</h3>
+<!-- INVENTAIRE -->
+<div id="inventaire">
+<h2>🗂 Inventaire Pokémon</h2>
+<p id="listePokemons">Aucun Pokémon capturé</p>
+<br>
+<button onclick="retourMenu()">⬅ Retour menu</button>
+</div>
+
+<!-- DON -->
+<div id="don">
+<h2>💖 Soutien</h2>
+<p>Si tu veux soutenir le jeu :</p>
 <a href="#" target="_blank"><button>Faire un don</button></a>
+<br><br>
+<button onclick="retourMenu()">⬅ Retour menu</button>
+</div>
 
 <script>
-// VARIABLES
+// ======= VARIABLES =======
 let joueurPV, ennemiPV, joueur, ennemi, attaques, argent=0;
-const mapSize=5;
 let playerPos={x:2,y:2};
+let pokemonsPossedes=[];
+const mapSize=5;
 
+// ======= POKÉMON =======
 const pokemons={
 "Salamèche":{attaques:["Flamme","Griffe","Croc Feu"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png"},
 "Dracaufeu":{attaques:["Lance-flammes","Draco-Queue","Croc Feu"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png"},
@@ -86,13 +83,23 @@ const pokemons={
 "Ponyta":{attaques:["Charge","Ruade","Flamme"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/77.png"}
 };
 
+// ======= ENNEMIS =======
 const ennemis={
 "Aquagon":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png",
 "Pyrodrake":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/149.png",
 "Eaudragon":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/8.png"
 };
 
-// CHOIX DU POKÉMON
+// ======= MENU ORIGINAL =======
+const menuHTML = `
+<h2>Menu</h2>
+<button onclick="choixPokemon()">🎴 Choisir Pokémon</button>
+<button onclick="ouvrirBoutique()">🏪 Boutique</button>
+<button onclick="ouvrirInventaire()">🗂 Inventaire</button>
+<button onclick="ouvrirDon()">💖 Faire un don</button>
+`;
+
+// ======= CHOIX POKÉMON =======
 function choixPokemon(){
   let menu=document.getElementById("menu");
   menu.innerHTML="<h2>Choisis ton Pokémon :</h2>";
@@ -110,17 +117,17 @@ function choixPokemon(){
   });
 }
 
-// DEBUT JEU
+// ======= DEBUT JEU =======
 function startGame(){
   document.getElementById("game").style.display="block";
   playerPos={x:2,y:2};
   drawMap();
-  spawnEnnemi();
+  spawnRencontre();
   updatePV();
   createAttaques();
 }
 
-// MAP
+// ======= MAP =======
 function drawMap(){
   let div=document.getElementById("map");
   div.innerHTML="";
@@ -135,7 +142,7 @@ function drawMap(){
   }
 }
 
-// DEPLACEMENT
+// ======= DEPLACEMENT =======
 document.addEventListener("keydown",function(e){
   if(document.getElementById("game").style.display==="block"){
     if(e.key==="ArrowUp" && playerPos.y>0) playerPos.y--;
@@ -143,21 +150,31 @@ document.addEventListener("keydown",function(e){
     if(e.key==="ArrowLeft" && playerPos.x>0) playerPos.x--;
     if(e.key==="ArrowRight" && playerPos.x<mapSize-1) playerPos.x++;
     drawMap();
-    if(Math.random()<0.2) spawnEnnemi();
+    if(Math.random()<0.3) spawnRencontre();
   }
 });
 
-// ENNEMI ALEATOIRE
-function spawnEnnemi(){
-  let noms=Object.keys(ennemis);
-  ennemi=noms[Math.floor(Math.random()*noms.length)];
-  ennemiPV=80 + Math.floor(Math.random()*40);
-  document.getElementById("titre").innerHTML="Rencontre ! "+ennemi+" apparait !";
-  document.getElementById("pokemonImg").src=pokemons[joueur].img;
-  document.getElementById("ennemiImg").src=ennemis[ennemi];
+// ======= RENCONTRE =======
+function spawnRencontre(){
+  let choix=Math.random();
+  if(choix<0.5){ // ennemi
+    let noms=Object.keys(ennemis);
+    ennemi=noms[Math.floor(Math.random()*noms.length)];
+    ennemiPV=80+Math.floor(Math.random()*40);
+    document.getElementById("titre").innerHTML="Rencontre ! "+ennemi+" apparait !";
+    document.getElementById("pokemonImg").src=pokemons[joueur].img;
+    document.getElementById("ennemiImg").src=ennemis[ennemi];
+  } else { // Pokémon sauvage capturable
+    let noms=Object.keys(pokemons);
+    let sauvage=noms[Math.floor(Math.random()*noms.length)];
+    if(!pokemonsPossedes.includes(sauvage)){
+      pokemonsPossedes.push(sauvage);
+      alert("🎉 Tu as capturé "+sauvage+" !");
+    }
+  }
 }
 
-// CREER BOUTONS ATTAQUE
+// ======= CREER BOUTONS ATTAQUE =======
 function createAttaques(){
   let div=document.getElementById("attaques");
   div.innerHTML="";
@@ -169,8 +186,9 @@ function createAttaques(){
   });
 }
 
-// ATTAQUE
+// ======= ATTAQUE =======
 function attaque(a){
+  if(!ennemi) return;
   let dJ=Math.floor(Math.random()*30)+10;
   ennemiPV-=dJ;
   let txt=joueur+" utilise "+a+" ! "+dJ+" dégâts<br>";
@@ -179,6 +197,7 @@ function attaque(a){
     argent+=gain;
     document.getElementById("result").innerHTML=txt+ennemi+" K.O ! Tu gagnes "+gain+" pièces";
     updatePV();
+    ennemi=null;
     return;
   }
   let dE=Math.floor(Math.random()*25)+10;
@@ -191,14 +210,14 @@ function attaque(a){
   updatePV();
 }
 
-// UPDATE PV & ARGENT
+// ======= UPDATE PV & ARGENT =======
 function updatePV(){
-  document.getElementById("pv").innerHTML=joueur+" PV : "+joueurPV+" | "+ennemi+" PV : "+ennemiPV;
+  document.getElementById("pv").innerHTML=joueur+" PV : "+joueurPV+" | "+(ennemi||"Aucun")+(ennemi? " PV : "+ennemiPV:"");
   document.getElementById("argent").innerHTML="💰 Argent : "+argent;
   document.getElementById("argentBoutique").innerText=argent;
 }
 
-// BOUTIQUE
+// ======= BOUTIQUE =======
 function ouvrirBoutique(){
   document.getElementById("menu").style.display="none";
   document.getElementById("boutique").style.display="block";
@@ -210,11 +229,34 @@ function acheter(item){
   updatePV();
 }
 
-// RETOUR MENU
+// ======= INVENTAIRE =======
+function ouvrirInventaire(){
+  document.getElementById("menu").style.display="none";
+  document.getElementById("inventaire").style.display="block";
+  if(pokemonsPossedes.length===0){
+    document.getElementById("listePokemons").innerText="Aucun Pokémon capturé";
+  } else {
+    document.getElementById("listePokemons").innerText=pokemonsPossedes.join(", ");
+  }
+}
+
+// ======= PAGE DON =======
+function ouvrirDon(){
+  document.getElementById("menu").style.display="none";
+  document.getElementById("don").style.display="block";
+}
+
+// ======= RETOUR MENU =======
 function retourMenu(){
   document.getElementById("game").style.display="none";
   document.getElementById("boutique").style.display="none";
-  document.getElementById("menu").style.display="block";
+  document.getElementById("don").style.display="none";
+  document.getElementById("inventaire").style.display="none";
+
+  // Réinitialiser le menu
+  let menu=document.getElementById("menu");
+  menu.innerHTML = menuHTML;
+  menu.style.display="block";
 }
 </script>
 
