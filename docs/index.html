@@ -7,13 +7,11 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.5/dist/leaflet.css"/>
 <style>
 body{margin:0;font-family:Arial;overflow:hidden;}
-#menu,#combat,#boutique,#inventaire,#don{display:none;text-align:center;}
-#menu{font-size:24px;padding-top:20px;}
-#map{position:absolute;top:0;left:0;right:0;bottom:0;}
+#menu,#combat,#boutique,#inventaire,#don{text-align:center;}
+#map{position:absolute;top:0;left:0;right:0;bottom:0;display:none;}
 button{padding:8px 14px;margin:5px;border-radius:8px;font-size:16px;cursor:pointer;}
-#joystick{position:absolute;bottom:20px;left:20px;width:120px;height:120px;border-radius:50%;background:rgba(0,0,0,0.2);touch-action:none;}
+#joystick{position:absolute;bottom:20px;left:20px;width:120px;height:120px;border-radius:50%;background:rgba(0,0,0,0.2);touch-action:none;display:none;}
 #stick{position:absolute;top:35px;left:35px;width:50px;height:50px;border-radius:50%;background:rgba(0,0,0,0.5);}
-canvas{pointer-events:none;}
 </style>
 </head>
 <body>
@@ -44,7 +42,6 @@ canvas{pointer-events:none;}
 
 <script src="https://unpkg.com/leaflet@1.9.5/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://unpkg.com/three/examples/js/renderers/CSS3DRenderer.js"></script>
 
 <script>
 // === VARIABLES JEU ===
@@ -52,7 +49,7 @@ let argent=0, joueurEquipe=[], pokemonsSurCarte=[], combatEnCours=false;
 let joueurPV=0, ennemiPV=0, ennemiNom="";
 let scene, camera, renderer, pokemonMeshes=[];
 
-// Pokémon de base avec image pour 3D
+// Pokémon de base avec image
 const pokemonsBase={
   "Salamèche":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png",
   "Caninos":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/58.png",
@@ -68,7 +65,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
 // === JOYSTICK MOBILE ===
 const stick=document.getElementById("stick"), base=document.getElementById("joystick");
 let move={x:0,y:0}, dragging=false;
-base.addEventListener("touchstart",e=>{dragging=true;});
+base.addEventListener("touchstart",()=>dragging=true);
 base.addEventListener("touchmove", e=>{
   if(!dragging) return;
   let rect=base.getBoundingClientRect();
@@ -77,9 +74,9 @@ base.addEventListener("touchmove", e=>{
   stick.style.transform=`translate(${x}px,${y}px)`;
   move.x = x/40; move.y = y/40;
 });
-base.addEventListener("touchend",()=>{dragging=false;stick.style.transform=""; move.x=0; move.y=0;});
+base.addEventListener("touchend",()=>{dragging=false; stick.style.transform=""; move.x=0; move.y=0;});
 
-// === PLACER DES POKÉMON SUR LA CARTE (3D) ===
+// === PLACER DES POKÉMON SUR LA CARTE ===
 const positions=[
   [44.838,-0.579],
   [44.836,-0.578],
@@ -91,41 +88,39 @@ scene = new THREE.Scene();
 camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight,0.1,1000);
 renderer = new THREE.WebGLRenderer({alpha:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.domElement.style.position="absolute";
+renderer.domElement.style.top="0";
+renderer.domElement.style.left="0";
+renderer.domElement.style.pointerEvents="none"; // pour ne pas bloquer Leaflet
 document.getElementById('map').appendChild(renderer.domElement);
 
-// Ajouter Pokémon en 3D comme cubes texturés
+// Ajouter Pokémon en 3D
 positions.forEach((pos,i)=>{
   let nom = Object.keys(pokemonsBase)[i];
   pokemonsSurCarte.push({nom,position:pos});
-
   let texture = new THREE.TextureLoader().load(pokemonsBase[nom]);
-  let geometry = new THREE.BoxGeometry(0.001,0.001,0.001); // taille ajustée GPS
+  let geometry = new THREE.BoxGeometry(0.001,0.001,0.001);
   let material = new THREE.MeshBasicMaterial({map:texture});
   let cube = new THREE.Mesh(geometry,material);
-  cube.position.set(pos[1],0,pos[0]); // lng=x, lat=z
+  cube.position.set(pos[1],0,pos[0]);
   scene.add(cube);
   pokemonMeshes.push({nom,cube,pos});
 });
 
-// === DÉPLACEMENT PERSONNAGE / SIMULATION ===
+// === DÉPLACEMENT ===
 let playerPos={lat:44.83779,lng:-0.57918};
 function deplacerPerso(){
   playerPos.lat += move.y*0.0002;
   playerPos.lng += move.x*0.0002;
   map.setView([playerPos.lat,playerPos.lng]);
 
-  if(combatEnCours){
-    requestAnimationFrame(deplacerPerso);
-    return;
-  }
+  if(combatEnCours){requestAnimationFrame(deplacerPerso); return;}
 
-  // Vérifier collision Pokémon
   pokemonMeshes.forEach(p=>{
     let dist = Math.hypot(playerPos.lat - p.pos[0], playerPos.lng - p.pos[1]);
     if(dist<0.0005 && !combatEnCours) commencerCombat(p.nom);
   });
 
-  // Update caméra Three.js
   camera.position.set(playerPos.lng,0,playerPos.lat);
   camera.lookAt(new THREE.Vector3(playerPos.lng,0,playerPos.lat+0.001));
   renderer.render(scene,camera);
