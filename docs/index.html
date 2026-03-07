@@ -6,199 +6,142 @@
 
 <style>
 body{
-font-family:Arial;
-background:#e8f4ff;
-text-align:center;
+  font-family: Arial;
+  background:#e8f4ff;
+  text-align:center;
 }
 
 button{
-padding:10px 20px;
-margin:5px;
-font-size:16px;
-cursor:pointer;
-border-radius:8px;
+  padding:10px 20px;
+  margin:5px;
+  font-size:16px;
+  cursor:pointer;
+  border-radius:8px;
 }
 
 #game{
-display:none;
+  display:none;
 }
 
 img{
-width:150px;
+  width:150px;
 }
-
 </style>
-</head>
 
+</head>
 <body>
 
 <h1>🎮 Gabgame Pokémon</h1>
 
+<!-- MENU PRINCIPAL -->
 <div id="menu">
-
-<h2>Menu</h2>
-
-<button onclick="startGame()">⚔️ Combat</button>
-
+  <h2>Menu</h2>
+  <button onclick="startGame()">⚔️ Combat Pokémon</button>
 </div>
 
-
+<!-- ZONE DE JEU -->
 <div id="game">
-
-<h2 id="titre"></h2>
-
-<img id="pokemonImg">
-
-<p id="pv"></p>
-
-<div id="attaques"></div>
-
-<p id="result"></p>
-
-<p id="argent"></p>
-
-<br>
-
-<button onclick="retourMenu()">⬅ Retour menu</button>
-
+  <h2 id="titre"></h2>
+  <img id="pokemonImg">
+  <p id="pv"></p>
+  <div id="attaques"></div>
+  <p id="result"></p>
+  <p id="argent"></p>
+  <br>
+  <button onclick="retourMenu()">⬅ Retour menu</button>
 </div>
 
 <hr>
 
+<!-- BOUTON SOUTIEN -->
 <h3>💖 Soutenir le jeu</h3>
-<a href="#"><button>Faire un don</button></a>
-
+<a href="#" target="_blank"><button>Faire un don</button></a>
 
 <script>
+// VARIABLES DU JEU
+let joueurPV;
+let ennemiPV;
+let joueur;
+let attaques;
+let argent = 0;
 
-let joueurPV
-let ennemiPV
-let joueur
-let attaques
-let argent=0
+// POKÉMON DISPONIBLES
+const pokemons = {
+  "Salamèche": {attaques:["Flamme","Griffe","Croc Feu"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png"},
+  "Dracaufeu": {attaques:["Lance-flammes","Draco-Queue","Croc Feu"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png"},
+  "Caninos": {attaques:["Morsure","Flamme","Charge"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/58.png"},
+  "Ponyta": {attaques:["Charge","Ruade","Flamme"], img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/77.png"}
+};
 
-const pokemons={
-"Salamèche":{
-attaques:["Flamme","Griffe","Croc Feu"],
-img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png"
-},
-
-"Dracaufeu":{
-attaques:["Lance-flammes","Draco-Queue","Croc Feu"],
-img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png"
-},
-
-"Caninos":{
-attaques:["Morsure","Flamme","Charge"],
-img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/58.png"
-},
-
-"Ponyta":{
-attaques:["Charge","Ruade","Flamme"],
-img:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/77.png"
-}
-}
-
+// DÉBUT DU JEU
 function startGame(){
+  document.getElementById("menu").style.display="none";
+  document.getElementById("game").style.display="block";
 
-document.getElementById("menu").style.display="none"
-document.getElementById("game").style.display="block"
+  // Choisir un Pokémon aléatoire pour le joueur
+  let noms = Object.keys(pokemons);
+  joueur = noms[Math.floor(Math.random()*noms.length)];
+  attaques = pokemons[joueur].attaques;
+  document.getElementById("pokemonImg").src = pokemons[joueur].img;
 
-let noms=Object.keys(pokemons)
+  // PV aléatoires
+  joueurPV = Math.floor(Math.random()*40)+60;
+  ennemiPV = Math.floor(Math.random()*40)+60;
 
-joueur=noms[Math.floor(Math.random()*noms.length)]
+  document.getElementById("titre").innerHTML = "Tu envoies "+joueur+" ! L'ennemi envoie Aquagon !";
 
-attaques=pokemons[joueur].attaques
+  updatePV();
 
-document.getElementById("pokemonImg").src=pokemons[joueur].img
-
-joueurPV=Math.floor(Math.random()*40)+60
-ennemiPV=Math.floor(Math.random()*40)+60
-
-document.getElementById("titre").innerHTML=
-"Tu envoies "+joueur+" ! L'ennemi envoie Aquagon !"
-
-updatePV()
-
-let div=document.getElementById("attaques")
-div.innerHTML=""
-
-attaques.forEach(a=>{
-
-let b=document.createElement("button")
-
-b.innerText=a
-
-b.onclick=function(){attaque(a)}
-
-div.appendChild(b)
-
-})
-
+  // Créer les boutons d'attaque
+  let div = document.getElementById("attaques");
+  div.innerHTML="";
+  attaques.forEach(a=>{
+    let b = document.createElement("button");
+    b.innerText = a;
+    b.onclick = function(){attaque(a)};
+    div.appendChild(b);
+  });
 }
 
+// METTRE À JOUR LES PV ET L’ARGENT
 function updatePV(){
-
-document.getElementById("pv").innerHTML=
-joueur+" PV : "+joueurPV+" | Aquagon PV : "+ennemiPV
-
-document.getElementById("argent").innerHTML=
-"💰 Argent : "+argent
-
+  document.getElementById("pv").innerHTML = joueur+" PV : "+joueurPV+" | Aquagon PV : "+ennemiPV;
+  document.getElementById("argent").innerHTML = "💰 Argent : "+argent;
 }
 
+// ATTAQUE DU JOUEUR ET DE L’ENNEMI
 function attaque(a){
+  let degatsJoueur = Math.floor(Math.random()*30)+10;
+  ennemiPV -= degatsJoueur;
+  let txt = joueur+" utilise "+a+" ! "+degatsJoueur+" dégâts<br>";
 
-let d=Math.floor(Math.random()*30)+10
+  if(ennemiPV <= 0){
+    let gain = Math.floor(Math.random()*20)+10;
+    argent += gain;
+    document.getElementById("result").innerHTML = txt+"Aquagon est K.O ! 🎉<br>Tu gagnes "+gain+" pièces";
+    document.getElementById("attaques").innerHTML="";
+    updatePV();
+    return;
+  }
 
-ennemiPV-=d
+  // Attaque ennemie
+  let degatsEnnemi = Math.floor(Math.random()*30)+10;
+  joueurPV -= degatsEnnemi;
+  txt += "Aquagon attaque ! "+degatsEnnemi+" dégâts";
+  if(joueurPV <= 0){
+    txt += "<br>"+joueur+" est K.O 😢";
+    document.getElementById("attaques").innerHTML="";
+  }
 
-let txt=joueur+" utilise "+a+" ! "+d+" dégâts<br>"
-
-if(ennemiPV<=0){
-
-let gain=Math.floor(Math.random()*20)+10
-
-argent+=gain
-
-document.getElementById("result").innerHTML=
-txt+"Aquagon est K.O ! 🎉<br>Tu gagnes "+gain+" pièces"
-
-document.getElementById("attaques").innerHTML=""
-
-updatePV()
-
-return
-
+  document.getElementById("result").innerHTML = txt;
+  updatePV();
 }
 
-let d2=Math.floor(Math.random()*30)+10
-
-joueurPV-=d2
-
-txt+="Aquagon attaque ! "+d2+" dégâts"
-
-if(joueurPV<=0){
-
-txt+="<br>"+joueur+" est K.O 😢"
-
-document.getElementById("attaques").innerHTML=""
-
-}
-
-document.getElementById("result").innerHTML=txt
-
-updatePV()
-
-}
-
+// REVENIR AU MENU
 function retourMenu(){
-
-document.getElementById("game").style.display="none"
-document.getElementById("menu").style.display="block"
-
+  document.getElementById("game").style.display="none";
+  document.getElementById("menu").style.display="block";
 }
-
 </script>
 
 </body>
