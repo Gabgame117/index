@@ -1,1 +1,542 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Pokemon World</title>
+<title>Pokémon World</title>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<style>
+
+body{
+margin:0;
+background:black;
+color:white;
+font-family:Arial;
+background:#1e1e1e;
+color:white;
+text-align:center;
+}
+
+.screen{display:none}
+
+button{
+padding:10px;
+margin:5px;
+font-size:16px;
+}
+
+canvas{
+background:#6ecb63;
+border:3px solid black;
+display:block;
+margin:auto;
+border:3px solid black;
+background:#6ecb63;
+}
+
+button{
+padding:10px;
+margin:5px;
+.hpbar{
+width:200px;
+height:18px;
+background:#333;
+margin:auto;
+}
+
+.screen{
+display:none;
+.hp{
+height:100%;
+background:lime;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="home" class="screen">
+<h1>Pokémon World</h1>
+
+<button onclick="show('login')">Se connecter</button>
+<button onclick="playGuest()">Jouer sans compte</button>
+
+</div>
+
+<div id="login" class="screen">
+
+<h2>Connexion</h2>
+
+<input id="email" placeholder="Email"><br>
+<input id="password" type="password" placeholder="Mot de passe"><br>
+
+<button onclick="login()">Connexion</button>
+<button onclick="register()">Créer un compte</button>
+
+<button onclick="show('home')">Retour</button>
+
+</div>
+
+<div id="menu" class="screen">
+
+<h1>Pokemon World</h1>
+<h2>Menu</h2>
+
+<button onclick="startGame()">Explorer</button>
+<button onclick="showInventory()">Inventaire</button>
+<button onclick="showShop()">Boutique</button>
+
+<button onclick="startGame()">Jouer</button>
+<button onclick="show('inventory')">Inventaire</button>
+<button onclick="show('shop')">Boutique</button>
+<p>Argent : <span id="money"></span></p>
+
+</div>
+
+<div id="game" class="screen">
+<div id="map" class="screen">
+
+<canvas id="canvas" width="800" height="500"></canvas>
+<canvas id="game" width="800" height="500"></canvas>
+
+<button onclick="show('menu')">Menu</button>
+
+</div>
+
+<div id="combat" class="screen">
+
+<h2 id="enemyName"></h2>
+
+<img id="enemySprite" width="120">
+
+<div class="hpbar">
+<div id="enemyHP" class="hp"></div>
+</div>
+
+<br>
+
+<img id="playerSprite" width="120">
+
+<div class="hpbar">
+<div id="playerHP" class="hp"></div>
+</div>
+
+<div id="attacks"></div>
+
+<button onclick="throwBall()">Pokéball</button>
+<button onclick="flee()">Fuir</button>
+
+</div>
+
+<div id="inventory" class="screen">
+
+<h2>Inventaire</h2>
+
+<p id="inv"></p>
+<p id="invText"></p>
+
+<button onclick="show('menu')">Retour</button>
+
+</div>
+
+<div id="shop" class="screen">
+
+<h2>Boutique</h2>
+
+<button onclick="buyBall()">Pokeball (10)</button>
+<button onclick="buyBall()">Pokéball (10)</button>
+
+<button onclick="show('menu')">Retour</button>
+
+</div>
+
+<script src="game.js"></script>
+<script>
+
+const SUPABASE_URL="https://tyitqidjzgoqpmuhuioq.supabase.co"
+const SUPABASE_KEY="sb_publishable_dFLgsifzFbrSBDAht6qERA_UtcOHSyn"
+
+const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)
+
+function show(id){
+
+document.querySelectorAll(".screen").forEach(s=>s.style.display="none")
+document.getElementById(id).style.display="block"
+
+}
+
+show("home")
+
+let player={
+
+x:400,
+y:250,
+speed:3,
+pokemon:"Salamèche",
+level:1,
+hp:100,
+money:50,
+balls:5,
+pokemons:[]
+
+}
+
+const sprites={
+
+Salamèche:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png",
+Rattata:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/19.png",
+Chenipan:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10.png",
+Piafabec:"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/21.png"
+
+}
+
+const wildList=["Rattata","Chenipan","Piafabec"]
+
+let wildPokemons=[]
+
+function spawnPokemon(){
+
+let name=wildList[Math.floor(Math.random()*wildList.length)]
+
+wildPokemons.push({
+
+name:name,
+x:Math.random()*750,
+y:Math.random()*450,
+hp:100,
+dx:Math.random()*2-1,
+dy:Math.random()*2-1
+
+})
+
+}
+
+for(let i=0;i<8;i++) spawnPokemon()
+
+const canvas=document.getElementById("game")
+const ctx=canvas.getContext("2d")
+
+let keys={}
+
+document.addEventListener("keydown",e=>keys[e.key]=true)
+document.addEventListener("keyup",e=>keys[e.key]=false)
+
+function startGame(){
+
+show("map")
+
+gameLoop()
+
+}
+
+let time=0
+
+function gameLoop(){
+
+update()
+
+draw()
+
+requestAnimationFrame(gameLoop)
+
+}
+
+function update(){
+
+if(keys["ArrowUp"]) player.y-=player.speed
+if(keys["ArrowDown"]) player.y+=player.speed
+if(keys["ArrowLeft"]) player.x-=player.speed
+if(keys["ArrowRight"]) player.x+=player.speed
+
+wildPokemons.forEach(p=>{
+
+p.x+=p.dx
+p.y+=p.dy
+
+if(p.x<0||p.x>760) p.dx*=-1
+if(p.y<0||p.y>460) p.dy*=-1
+
+if(Math.abs(player.x-p.x)<30 && Math.abs(player.y-p.y)<30){
+
+enemy=p
+startCombat()
+
+}
+
+})
+
+time++
+
+}
+
+function draw(){
+
+ctx.clearRect(0,0,800,500)
+
+// cycle jour nuit
+
+let night=Math.sin(time/500)
+
+if(night>0){
+
+ctx.fillStyle="rgba(0,0,80,"+night+")"
+ctx.fillRect(0,0,800,500)
+
+}
+
+// herbe
+
+ctx.fillStyle="#4caf50"
+
+for(let i=0;i<20;i++){
+
+ctx.fillRect(i*40,300,30,30)
+
+}
+
+// joueur
+
+ctx.fillStyle="red"
+ctx.fillRect(player.x,player.y,20,20)
+
+// pokemon sauvages
+
+wildPokemons.forEach(p=>{
+
+let img=new Image()
+img.src=sprites[p.name]
+
+ctx.drawImage(img,p.x,p.y,40,40)
+
+})
+
+}
+
+let enemy={}
+
+function startCombat(){
+
+player.hp=100
+
+document.getElementById("enemyName").innerText="Un "+enemy.name+" sauvage apparaît"
+
+document.getElementById("enemySprite").src=sprites[enemy.name]
+document.getElementById("playerSprite").src=sprites[player.pokemon]
+
+updateHP()
+
+createAttacks()
+
+show("combat")
+
+}
+
+function createAttacks(){
+
+const div=document.getElementById("attacks")
+
+div.innerHTML=""
+
+const attacks=["Attaque","Flamme","Charge"]
+
+attacks.forEach(a=>{
+
+let b=document.createElement("button")
+
+b.innerText=a
+
+b.onclick=()=>attack()
+
+div.appendChild(b)
+
+})
+
+}
+
+function attack(){
+
+let dmg=Math.floor(Math.random()*20)+10
+
+enemy.hp-=dmg
+
+updateHP()
+
+if(enemy.hp<=0){
+
+alert("Victoire")
+
+player.money+=20
+
+player.level++
+
+checkEvolution()
+
+endCombat()
+
+return
+
+}
+
+enemyAttack()
+
+}
+
+function enemyAttack(){
+
+let dmg=Math.floor(Math.random()*15)+5
+
+player.hp-=dmg
+
+updateHP()
+
+if(player.hp<=0){
+
+alert("KO")
+
+endCombat()
+
+}
+
+}
+
+function throwBall(){
+
+if(player.balls<=0){
+
+alert("Plus de Pokéball")
+
+return
+
+}
+
+player.balls--
+
+let chance=Math.random()
+
+if(chance>0.5){
+
+alert("Pokémon capturé !")
+
+player.pokemons.push(enemy.name)
+
+endCombat()
+
+}else{
+
+alert("Le Pokémon s'est échappé")
+
+}
+
+}
+
+function flee(){
+
+endCombat()
+
+}
+
+function endCombat(){
+
+wildPokemons=wildPokemons.filter(p=>p!==enemy)
+
+spawnPokemon()
+
+updateUI()
+
+show("map")
+
+}
+
+function updateHP(){
+
+document.getElementById("playerHP").style.width=player.hp+"%"
+document.getElementById("enemyHP").style.width=enemy.hp+"%"
+
+}
+
+function buyBall(){
+
+if(player.money>=10){
+
+player.money-=10
+player.balls++
+
+updateUI()
+
+}
+
+}
+
+function showInventory(){
+
+document.getElementById("invText").innerText=
+
+"Pokéballs : "+player.balls+
+"\nPokémon capturés : "+player.pokemons.join(", ")
+
+show("inventory")
+
+}
+
+function showShop(){
+
+show("shop")
+
+}
+
+function updateUI(){
+
+document.getElementById("money").innerText=player.money
+
+}
+
+function checkEvolution(){
+
+if(player.pokemon=="Salamèche" && player.level>=16){
+
+player.pokemon="Reptincel"
+
+alert("Salamèche évolue en Reptincel !")
+
+}
+
+}
+
+function playGuest(){
+
+show("menu")
+
+updateUI()
+
+}
+
+async function register(){
+
+const email=document.getElementById("email").value
+const password=document.getElementById("password").value
+
+await supabaseClient.auth.signUp({email,password})
+
+alert("Compte créé")
+
+}
+
+async function login(){
+
+const email=document.getElementById("email").value
+const password=document.getElementById("password").value
+
+await supabaseClient.auth.signInWithPassword({email,password})
+
+show("menu")
+
+}
+
+</script>
+
+</body>
+</html>
